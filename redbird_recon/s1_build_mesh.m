@@ -18,20 +18,22 @@ function s1_build_mesh(outfile)
 %
 % Requires iso2mesh (vol2mesh, removeisolatednode, savejmesh) and jsonlab/jnifti.
 
-if (nargin < 1)
+if nargin < 1
     outfile = fullfile(fileparts(mfilename('fullpath')), 'head_mesh.bmsh');
 end
 here = fileparts(mfilename('fullpath'));
 hm   = fullfile(here, '..', 'hm_icbm152');
-addtoolboxpaths();
 
 %% 1. combine the 5 tissue masks into one labelled volume (inner overwrites outer)
 masknames = {'mask_skin', 'mask_bone', 'mask_csf', 'mask_gray', 'mask_white'};
-seg = []; nii = [];
+seg = [];
+nii = [];
 for i = 1:numel(masknames)
     nii = loadnifti(fullfile(hm, [masknames{i} '.nii']));
     vol = nii.NIFTIData;
-    if (isempty(seg)); seg = zeros(size(vol), 'uint8'); end
+    if isempty(seg)
+        seg = zeros(size(vol), 'uint8');
+    end
     seg(vol > 0) = i;                                    % 1..5
 end
 fprintf('segmentation %s, labels %s\n', mat2str(size(seg)), mat2str(unique(seg(:))'));
@@ -39,22 +41,24 @@ fprintf('segmentation %s, labels %s\n', mat2str(size(seg)), mat2str(unique(seg(:
 %% 2. tetrahedral mesh (CGAL); raise maxvol for a coarser/faster mesh
 opt = struct('radbound', 2, 'distbound', 1);
 maxvol = 30;
-[node, elem, face] = vol2mesh(seg, 1:size(seg,1), 1:size(seg,2), 1:size(seg,3), ...
+[node, elem, face] = vol2mesh(seg, 1:size(seg, 1), 1:size(seg, 2), 1:size(seg, 3), ...
                               opt, maxvol, 1, 'cgalmesh');
 
 %% 3. drop isolated nodes (reindex only the index columns, keep label/bid columns)
-elabel = elem(:, 5); fbid = face(:, 4);
+elabel = elem(:, 5);
+fbid = face(:, 4);
 [node, e4, f3] = removeisolatednode(node, elem(:, 1:4), face(:, 1:3));
-elem = [e4, elabel]; face = [f3, fbid];
+elem = [e4, elabel];
+face = [f3, fbid];
 fprintf('mesh: %d nodes, %d tets, regions %s\n', ...
-        size(node,1), size(elem,1), mat2str(unique(elem(:,5))'));
+        size(node, 1), size(elem, 1), mat2str(unique(elem(:, 5))'));
 
 %% 4. map node coordinates voxel(IJK)->RAS(mm)
 A = getaffine(nii);
-node(:, 1:3) = (A(1:3,1:3) * (node(:,1:3) - 1)' + A(1:3,4))';
+node(:, 1:3) = (A(1:3, 1:3) * (node(:, 1:3) - 1)' + A(1:3, 4))';
 fprintf('node RAS bbox: x[%.1f %.1f] y[%.1f %.1f] z[%.1f %.1f]\n', ...
-        min(node(:,1)), max(node(:,1)), min(node(:,2)), max(node(:,2)), ...
-        min(node(:,3)), max(node(:,3)));
+        min(node(:, 1)), max(node(:, 1)), min(node(:, 2)), max(node(:, 2)), ...
+        min(node(:, 3)), max(node(:, 3)));
 
 %% 5. save as JMesh (tissue label in elem 5th column)
 savejmesh(node, face, elem, outfile, 'Dimension', 3, ...
@@ -66,20 +70,15 @@ end
 % -------------------------------------------------------------------------
 function A = getaffine(nii)
 h = nii.NIFTIHeader;
-if (isfield(h, 'Affine') && ~isempty(h.Affine))
-    A = h.Affine; if (size(A,1) == 3); A = [A; 0 0 0 1]; end
+if isfield(h, 'Affine') && ~isempty(h.Affine)
+    A = h.Affine;
+    if size(A, 1) == 3
+        A = [A; 0 0 0 1];
+    end
 else
     A = eye(4);
-    if (isfield(h, 'QuaternOffset'))
-        A(1:3,4) = [h.QuaternOffset.x; h.QuaternOffset.y; h.QuaternOffset.z];
+    if isfield(h, 'QuaternOffset')
+        A(1:3, 4) = [h.QuaternOffset.x; h.QuaternOffset.y; h.QuaternOffset.z];
     end
 end
-end
-
-% -------------------------------------------------------------------------
-function addtoolboxpaths()
-root = '/home/users/fangq/space/git/Project';
-cand = {fullfile(root,'github','iso2mesh'), fullfile(root,'jsonlab'), ...
-        fullfile(root,'github','jnifty'), fullfile(root,'github','jmesh','lib','matlab')};
-for i = 1:numel(cand); if (exist(cand{i},'dir')); addpath(cand{i}); end; end
 end
