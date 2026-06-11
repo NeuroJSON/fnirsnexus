@@ -10,8 +10,9 @@ function s4_recon_surface(alpha, beta)
 % Method:
 %   * redbird FEM forward -> baseline detphi + fluence phi (homogeneous/5-tissue)
 %   * NODAL Jacobian on the forward mesh (rbfemmatrix, no remap)
-%   * gather Jacobian columns onto the surface vertices Vsurf = [cortex; scalp]
-%     (nearest forward node per surface vertex) -> a 2-D surface operator
+%   * conservatively aggregate (node->vertex SUM) the nodal Jacobian onto the
+%     surface vertices Vsurf=[cortex; scalp] (each node -> nearest vertex, summed,
+%     total sensitivity conserved) -> a 2-D surface operator
 %   * Rytov normalize (J/ymodel), chromophore stack -> W
 %   * measurement whitening with c_meas (pre-stim dOD variance) + depth weighting
 %   * Tikhonov solve -> dHbO/dHbR on the two surfaces
@@ -116,15 +117,21 @@ else
         phimap = phi(1).phi;
     end
 
-    % gather: nearest forward node per surface vertex
-    snode = nearestnodes(node, Vsurf);
+    % conservative node->vertex aggregation (matches Cedalion's binary voxel->vertex
+    % SUM): assign each forward node to its NEAREST surface vertex and SUM the nodal
+    % Jacobian columns. rbfemmatrix's nodal Jacobian is volume-integrated, so the sum
+    % conserves the total sensitivity (each node counted exactly once) and is robust
+    % to non-uniform FEM node density -- unlike the previous nearest-node gather,
+    % which sampled one node per vertex (aliasing + dropped nodes, not conservative).
+    vnode = nearestnodes(Vsurf, node);                       % nearest surf vertex per fwd node
+    Sagg = sparse(1:size(node, 1), vnode, 1, size(node, 1), size(Vsurf, 1)); % [Nfwd x Nsurf]
     sdmeas = [pairs(:, 1), pairs(:, 2) + ns, ones(npair, 1), ones(npair, 1)];
     Js = containers.Map();
     for w = 1:nwl
         cfgw = cfg;
         cfgw.prop = cfg.prop(wlkey{w});
         Jw = rbfemmatrix(cfgw, sdmeas, phimap(wlkey{w}), cfg.deldotdel, 1);  % [npair x Nfwd]
-        Js(wlkey{w}) = Jw(:, snode);                                        % [npair x Nsurf]
+        Js(wlkey{w}) = Jw * Sagg;                                           % [npair x Nsurf] (summed)
         clear Jw;
     end
     Jchrome = rbjacchrome(Js, {'hbo', 'hbr'});
