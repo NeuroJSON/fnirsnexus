@@ -1,0 +1,44 @@
+# File: hrf_measurement.jdb (1163904 bytes)
+
+{
+  "format": "redbird-hrf-dod",
+  "wavelengths": {
+    "_ArrayType_": "double",
+    "_ArraySize_": [2],
+    "_ArrayData_": [760, 850]
+  },
+  "srcpos": {
+    "_ArrayType_": "double",
+    "_ArraySize_": [56, 3],
+    "_ArrayData_": <[168] row: [-19.0267346307262,85.4054171295717,-7.16753865288338,20.353238032066]...>
+  },
+  "detpos": {
+    "_ArrayType_": "double",
+    "_ArraySize_": [144, 3],
+    "_ArrayZipType_": "zlib",
+    "_ArrayZipSize_": [1, 432],
+    "_ArrayZipData_": <3345 values: [120,156,13,150]...>
+  },
+  "pairs": {
+    "_ArrayType_": "int32",
+    "_ArraySize_": [497, 2],
+    "_ArrayZipType_": "zlib",
+    "_ArrayZipSize_": [1, 994],
+    "_ArrayZipData_": <1182 values: [120,156,77,215]...>
+  },
+  "trialtype": ["Stim C3", "Stim C4"],
+  "time": {
+    "_ArrayType_": "double",
+    "_ArraySize_": [190],
+    "_ArrayData_": <[190] row: [-0.999,-0.888,-0.777,-0.666]...>
+  },
+  "dOD": {
+    "_ArrayType_": "single",
+    "_ArraySize_": [497, 2, 190, 2],
+    "_ArrayZipType_": "zlib",
+    "_ArrayZipSize_": [1, 377720],
+    "_ArrayZipData_": <1155805 values: [120,156,36,215]...>
+  },
+  "Unit": "dimensionless",
+  "Space": "scanner_anat_RAS_mm"
+}

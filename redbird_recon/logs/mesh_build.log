@@ -1,0 +1,26 @@
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2019 The MathWorks, Inc.
+              R2019b Update 2 (9.7.0.1247435) 64-bit (glnxa64)
+                              November 7, 2019
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+combined segmentation: [193 239 263], labels present: [0 1 2 3 4 5]
+creating surface and tetrahedral mesh from a multi-domain volume ...
+Volume/Surface Mesh Generation Utility (Based on CGAL 3.8)
+(modified for iso2mesh by Qianqian Fang and Peter Varga)
+http://iso2mesh.sf.net
+
+RNG seed=1648335518
+Mesh sizes are (label=size) (1=30) 
+node number:	144199
+triangles:	608096
+tetrahedra:	804243
+regions:	5
+surface and volume meshes complete
+mesh: 144193 nodes, 804243 tets, 608096 surface tris
+node RAS bbox: x[-94.1 93.1] y[-121.1 99.1] z[-148.6 103.1]
+saved /drives/bixi1/users/fangq/git/Temp/imagespace/redbird_recon/head_mesh.jmsh

@@ -1,0 +1,18 @@
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2019 The MathWorks, Inc.
+              R2019b Update 2 (9.7.0.1247435) 64-bit (glnxa64)
+                              November 7, 2019
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+mesh: 144193 nodes, 804243 tets, 5 regions
+reconstructing at reltime=9.99 s (index 100)
+loading cached recon operator: /drives/bixi1/users/fangq/git/Temp/imagespace/redbird_recon/recon_op.mat
+alpha=0.1 beta=1 -> lambda=1.087e-01
+Stim C3  ||dOD||=8.078e-02  dHbO range [-0.332 3.567] uM
+Stim C4  ||dOD||=8.677e-02  dHbO range [-0.283 4.352] uM
+saved recon.bgii
+wrote recon_compare.png

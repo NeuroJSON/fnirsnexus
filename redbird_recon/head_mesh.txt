@@ -1,0 +1,66 @@
+# File: head_mesh.bmsh (8778155 bytes)
+
+{
+  "_DataInfo_": {
+    "JMeshVersion": 0.5,
+    "Dimension": 3,
+    "CreationTime": "11-Jun-2026 15:44:45",
+    "Comment": "scalp=1 bone=2 csf=3 gray=4 white=5",
+    "AnnotationFormat": "https://github.com/NeuroJSON/jmesh/blob/master/JMesh_specification.md",
+    "SerialFormat": "http://json.org",
+    "Parser": {
+      "Python": ["https://pypi.org/project/jdata", "https://pypi.org/project/bjdata"],
+      "MATLAB": "https://github.com/NeuroJSON/jsonlab",
+      "JavaScript": [
+        "https://github.com/NeuroJSON/jsdata",
+        "https://github.com/NeuroJSON/js-bjdata"
+      ],
+      "CPP": "https://github.com/NeuroJSON/json",
+      "C": ["https://github.com/DaveGamble/cJSON", "https://github.com/NeuroJSON/ubj"]
+    },
+    "MeshTitle": "ICBM-152 head FEM mesh (RAS mm)"
+  },
+  "MeshVertex3": {
+    "_ArrayType_": "double",
+    "_ArraySize_": [144193, 3],
+    "_ArrayZipSize_": [1, 432579],
+    "_ArrayZipType_": "zlib",
+    "_ArrayZipData_": <1806357 values: [120,156,52,157]...>
+  },
+  "MeshTri3": {
+    "Data": {
+      "_ArrayType_": "double",
+      "_ArraySize_": [608096, 3],
+      "_ArrayZipSize_": [1, 1824288],
+      "_ArrayZipType_": "zlib",
+      "_ArrayZipData_": <1777218 values: [120,156,164,221]...>
+    },
+    "Properties": {
+      "Value": {
+        "_ArrayType_": "double",
+        "_ArraySize_": [608096, 1],
+        "_ArrayZipSize_": [1, 608096],
+        "_ArrayZipType_": "zlib",
+        "_ArrayZipData_": <146995 values: [120,156,236,186]...>
+      }
+    }
+  },
+  "MeshTet4": {
+    "Data": {
+      "_ArrayType_": "double",
+      "_ArraySize_": [804243, 4],
+      "_ArrayZipSize_": [1, 3216972],
+      "_ArrayZipType_": "zlib",
+      "_ArrayZipData_": <4818183 values: [120,156,132,189]...>
+    },
+    "Properties": {
+      "Value": {
+        "_ArrayType_": "double",
+        "_ArraySize_": [804243, 1],
+        "_ArrayZipSize_": [1, 804243],
+        "_ArrayZipType_": "zlib",
+        "_ArrayZipData_": <228017 values: [120,156,236,187]...>
+      }
+    }
+  }
+}

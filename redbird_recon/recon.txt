@@ -1,0 +1,63 @@
+# File: recon.bgii (935720 bytes)
+
+{
+  "GIFTIHeader": {
+    "Version": 1.0,
+    "MetaData": {
+      "Description": "redbird two-surface DOT recon (cortex dHbO/dHbR, uM)",
+      "LengthUnit": "mm",
+      "alpha": 0.003,
+      "beta": 0.01
+    }
+  },
+  "GIFTIData": {
+    "MeshVertex3": {
+      "Data": {
+        "_ArrayType_": "single",
+        "_ArraySize_": [25000, 3],
+        "_ArrayZipSize_": [1, 75000],
+        "_ArrayZipType_": "zlib",
+        "_ArrayZipData_": <269442 values: [120,156,20,91]...>
+      },
+      "Properties": {
+        "HbO_C3": {
+          "_ArrayType_": "single",
+          "_ArraySize_": [25000, 1],
+          "_ArrayZipSize_": [1, 25000],
+          "_ArrayZipType_": "zlib",
+          "_ArrayZipData_": <82926 values: [120,156,76,150]...>
+        },
+        "HbR_C3": {
+          "_ArrayType_": "single",
+          "_ArraySize_": [25000, 1],
+          "_ArrayZipSize_": [1, 25000],
+          "_ArrayZipType_": "zlib",
+          "_ArrayZipData_": <83449 values: [120,156,76,151]...>
+        },
+        "HbO_C4": {
+          "_ArrayType_": "single",
+          "_ArraySize_": [25000, 1],
+          "_ArrayZipSize_": [1, 25000],
+          "_ArrayZipType_": "zlib",
+          "_ArrayZipData_": <83024 values: [120,156,76,151]...>
+        },
+        "HbR_C4": {
+          "_ArrayType_": "single",
+          "_ArraySize_": [25000, 1],
+          "_ArrayZipSize_": [1, 25000],
+          "_ArrayZipType_": "zlib",
+          "_ArrayZipData_": <83454 values: [120,156,76,151]...>
+        }
+      }
+    },
+    "MeshTri3": {
+      "Data": {
+        "_ArrayType_": "int32",
+        "_ArraySize_": [49992, 3],
+        "_ArrayZipSize_": [1, 149976],
+        "_ArrayZipType_": "zlib",
+        "_ArrayZipData_": <332434 values: [120,156,92,189]...>
+      }
+    }
+  }
+}

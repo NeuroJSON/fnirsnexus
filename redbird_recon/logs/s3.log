@@ -1,0 +1,24 @@
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2019 The MathWorks, Inc.
+              R2019b Update 2 (9.7.0.1247435) 64-bit (glnxa64)
+                              November 7, 2019
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+iterative recon: Stim C4, t=9.99s, maxiter=4
+[Warning: found interior nodes, their norms will be set to zeros; to remove
+them, please use removeisolatednodes.m from iso2mesh toolbox] 
+[> In nodesurfnorm (line 38)
+  In s3_recon_official (line 35)
+  In run_s3 (line 3)] 
+iter [   1]: residual=2.121302e+00, relres=1.000000e+00 lambda=1.000000e-01 (time=193.649095 s)
+iter [   2]: residual=1.822935e+00, relres=8.593473e-01 lambda=1.000000e-01 (time=183.435182 s)
+iter [   3]: residual=1.621877e+00, relres=7.645667e-01 lambda=1.000000e-01 (time=190.125612 s)
+iter [   4]: residual=1.489944e+00, relres=7.023723e-01 lambda=1.000000e-01 (time=197.174921 s)
+residual per iter      : 2.1213e+00 1.8229e+00 1.6219e+00 1.4899e+00 
+relative residual r/r1 : 1.0000 0.8593 0.7646 0.7024 
+final dHbO range [-0.195 1.730] uM on 62603 GM nodes
+wrote recon_iter_C4.png

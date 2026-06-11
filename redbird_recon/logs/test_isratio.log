@@ -1,0 +1,38 @@
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2019 The MathWorks, Inc.
+              R2019b Update 2 (9.7.0.1247435) 64-bit (glnxa64)
+                              November 7, 2019
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+generating tetrahedral mesh from closed surfaces ...
+creating volumetric mesh from a surface mesh ...
+volume mesh generation is complete
+Surface Mesh Extraction Utility (Based on CGAL 3.8)
+(modified for iso2mesh by Qianqian Fang)
+http://iso2mesh.sf.net
+
+RNG seed 1648335518
+set initial mesh size to 50
+Refining... maximum node number is set to 40000
+
+done.
+Final number of points: 533
+generating tetrahedral mesh from closed surfaces ...
+creating volumetric mesh from a surface mesh ...
+volume mesh generation is complete
+generating tetrahedral mesh from closed surfaces ...
+creating volumetric mesh from a surface mesh ...
+volume mesh generation is complete
+generating tetrahedral mesh from closed surfaces ...
+creating volumetric mesh from a surface mesh ...
+volume mesh generation is complete
+iter [   1]: residual=1.824887e-03, relres=1.000000e+00 lambda=1.000000e-02 (time=18.849854 s)
+iter [   1]: residual=1.824887e-03, relres=1.000000e+00 lambda=1.000000e-02 (time=19.068598 s)
+reform=real       max|abs-ratio| HbO = 7.816e-14   rel = 2.866e-15   corr = 1.000000
+iter [   1]: residual=1.650016e+03, relres=1.000000e+00 lambda=1.000000e-02 (time=18.631773 s)
+iter [   1]: residual=1.650016e+03, relres=1.000000e+00 lambda=1.000000e-02 (time=19.038111 s)
+reform=logphase   max|abs-ratio| HbO = 3.553e-14   rel = 2.455e-15   corr = 1.000000

@@ -1,0 +1,19 @@
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2019 The MathWorks, Inc.
+              R2019b Update 2 (9.7.0.1247435) 64-bit (glnxa64)
+                              November 7, 2019
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+two-surface unknowns: 25000 cortex + 10018 scalp = 35018
+loading cached surface operator /drives/bixi1/users/fangq/git/Temp/imagespace/redbird_recon/s4_op.mat
+alpha=0.003 beta=0.01 lambda=3.705e-01
+C3     cortex dHbO[-0.91 2.69] scalp dHbO[-1.13 2.50]  leak=0.93
+C4     cortex dHbO[-0.56 2.95] scalp dHbO[-0.79 2.90]  leak=0.98
+C3-C4  cortex dHbO[-2.38 2.95] scalp dHbO[-2.59 2.43]  leak=0.88
+score C3: peak-err 6.7 mm, corr 0.269, pk 2.69 (truth 5.00)
+score C4: peak-err 19.0 mm, corr 0.404, pk 2.95 (truth 5.00)
+wrote recon_surface.png

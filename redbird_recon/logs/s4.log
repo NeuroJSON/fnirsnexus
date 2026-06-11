@@ -1,0 +1,28 @@
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2019 The MathWorks, Inc.
+              R2019b Update 2 (9.7.0.1247435) 64-bit (glnxa64)
+                              November 7, 2019
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+two-surface unknowns: 25000 cortex + 10018 scalp = 35018
+[Warning: found interior nodes, their norms will be set to zeros; to remove
+them, please use removeisolatednodes.m from iso2mesh toolbox] 
+[> In nodesurfnorm (line 38)
+  In s4_recon_surface (line 59)
+  In run_s4 (line 3)] 
+WARNING: redundant field 'param'
+WARNING: redundant field 'facenb'
+WARNING: redundant field 'param'
+WARNING: redundant field 'facenb'
+cached surface operator /drives/bixi1/users/fangq/git/Temp/imagespace/redbird_recon/s4_op.mat
+alpha=0.01 beta=1 lambda=1.957e-02
+C3     cortex dHbO[-0.01 0.86] scalp dHbO[-0.02 1.20]  leak=1.40
+C4     cortex dHbO[-0.03 0.95] scalp dHbO[-0.03 1.22]  leak=1.28
+C3-C4  cortex dHbO[-0.40 0.20] scalp dHbO[-0.67 0.23]  leak=1.67
+score C3: peak-err 115.9 mm, corr 0.038, pk 0.86 (truth 5.00)
+score C4: peak-err 51.4 mm, corr 0.210, pk 0.95 (truth 5.00)
+wrote recon_surface.png

@@ -1,0 +1,76 @@
+# File: groundtruth.bgii (800492 bytes)
+
+{
+  "GIFTIHeader": {
+    "Version": 1.0,
+    "MetaData": {
+      "Description": "ICBM-152 cortex with synthetic ground-truth activation",
+      "SubjectID": "nn22_icbm152",
+      "LengthUnit": "mm",
+      "Source": "Cedalion hmstandardization_challenge_prep / spatial_act.csv"
+    }
+  },
+  "GIFTIData": {
+    "MeshVertex3": {
+      "_DataInfo_": {
+        "MetaData": {
+          "AnatomicalStructurePrimary": "CortexRightAndLeft",
+          "GeometricType": "Anatomical",
+          "Name": "true_activation",
+          "Unit": "uM"
+        }
+      },
+      "Data": {
+        "_ArrayType_": "single",
+        "_ArraySize_": [25000, 3],
+        "_ArrayZipType_": "zlib",
+        "_ArrayZipSize_": [1, 75000],
+        "_ArrayZipData_": <269442 values: [120,156,20,91]...>
+      },
+      "Properties": {
+        "HbO_C3": {
+          "_ArrayType_": "single",
+          "_ArraySize_": [25000],
+          "_ArrayZipType_": "zlib",
+          "_ArrayZipSize_": [1, 25000],
+          "_ArrayZipData_": <49616 values: [120,156,12,151]...>
+        },
+        "HbR_C3": {
+          "_ArrayType_": "single",
+          "_ArraySize_": [25000],
+          "_ArrayZipType_": "zlib",
+          "_ArrayZipSize_": [1, 25000],
+          "_ArrayZipData_": <49623 values: [120,156,12,151]...>
+        },
+        "HbO_C4": {
+          "_ArrayType_": "single",
+          "_ArraySize_": [25000],
+          "_ArrayZipType_": "zlib",
+          "_ArrayZipSize_": [1, 25000],
+          "_ArrayZipData_": <49100 values: [120,156,236,215]...>
+        },
+        "HbR_C4": {
+          "_ArrayType_": "single",
+          "_ArraySize_": [25000],
+          "_ArrayZipType_": "zlib",
+          "_ArrayZipSize_": [1, 25000],
+          "_ArrayZipData_": <49085 values: [120,156,236,215]...>
+        }
+      }
+    },
+    "MeshTri3": {
+      "_DataInfo_": {
+        "MetaData": {
+          "TopologicalType": "Closed"
+        }
+      },
+      "Data": {
+        "_ArrayType_": "int32",
+        "_ArraySize_": [49992, 3],
+        "_ArrayZipType_": "zlib",
+        "_ArrayZipSize_": [1, 149976],
+        "_ArrayZipData_": <332434 values: [120,156,92,189]...>
+      }
+    }
+  }
+}
