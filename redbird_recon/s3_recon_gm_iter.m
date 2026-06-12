@@ -1,9 +1,10 @@
-function s3_recon_official(trial, maxiter)
-% S3_RECON_OFFICIAL  Iterative Gauss-Newton fNIRS reconstruction through the OFFICIAL
-% redbird path (rbrun/rbrunrecon) using the new recon.isratio flag + Rytov ('logphase').
+function s3_recon_gm_iter(trial, maxiter)
+% S3_RECON_GM_ITER  Iterative Gauss-Newton fNIRS reconstruction on the GRAY-MATTER
+% submesh through the OFFICIAL redbird path (rbrun/rbrunrecon) using the new
+% recon.isratio flag + Rytov ('logphase').
 %
-%   s3_recon_official()        % Stim C4, 4 iterations
-%   s3_recon_official(1, 3)    % Stim C3, 3 iterations
+%   s3_recon_gm_iter()        % Stim C4, 4 iterations
+%   s3_recon_gm_iter(1, 3)    % Stim C3, 3 iterations
 %
 % Unlike s2_recon (a single fixed linear step), this updates the optical properties
 % each iteration and re-runs the forward + Jacobian, so it reports a genuine
@@ -155,8 +156,8 @@ caxis([-mm mm]);
 colormap(cmap);
 colorbar;
 title(sprintf('redbird %s, %d iters (pk %.2f uM)', tag, maxiter, max(cval)), 'Interpreter', 'none');
-print(fig, fullfile(here, sprintf('recon_iter_%s.png', tag)), '-dpng', '-r110');
-fprintf('wrote recon_iter_%s.png\n', tag);
+print(fig, fullfile(here, sprintf('recon_gm_iter_%s.png', tag)), '-dpng', '-r110');
+fprintf('wrote recon_gm_iter_%s.png\n', tag);
 end
 
 % ------------------------------------------------------------------

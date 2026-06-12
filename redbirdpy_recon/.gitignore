@@ -1,0 +1,9 @@
+# cached forward operators (large, regenerable by re-running the s* scripts)
+s4_op.jdb
+s4_op_gather.jdb
+recon_gm_op.jdb
+# rendered figures in figures/ are kept (tracked) as an active copy of the results
+
+# python bytecode cache
+__pycache__/
+*.pyc

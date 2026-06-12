@@ -28,9 +28,10 @@ the sharpest **C3 ≈ 3.7 mm**. See `recon_surface.png` / `recon_scalp.png`.
 |---|---|---|---|
 | 0. export | `export_inputs.py` (Python) | `groundtruth.bgii`, `hrf_measurement.jdb` | needs `jdata, h5py, pandas` |
 | 1. mesh | `s1_build_mesh.m` (iso2mesh) | `head_mesh.bmsh` | 5-tissue tet mesh from ICBM masks, RAS mm |
-| 2. linear recon (GM volume) | `s2_recon.m` | `figures/recon_iter_*`, `recon_op.mat`(cache) | single Rytov step on gray-matter nodes |
-| 3. iterative recon | `s3_recon_official.m` | `figures/recon_iter_C4.png` | official `rbrun`+`recon.isratio`, N Gauss-Newton iters |
-| 4. two-surface recon | `s4_recon_surface.m` | **`recon.bgii`**, `figures/recon_surface.png`, `s4_op.mat`(cache) | **cortex+scalp unknowns; best localization** |
+| 2. linear recon (GM volume) | `s2_recon_gm.m` | `recon_gm.bgii`, `recon_gm_op.mat`(cache) | single Rytov step on gray-matter nodes |
+| 3. iterative recon (GM volume) | `s3_recon_gm_iter.m` | `figures/recon_gm_iter_C4.png` | official `rbrun`+`recon.isratio`, N Gauss-Newton iters |
+| 4. two-surface recon (conservative SUM) | `s4_recon_surface.m` | **`recon.bgii`**, `figures/recon_surface.png`, `s4_op.mat`(cache) | **cortex+scalp unknowns; best localization** |
+| 4b. two-surface recon (GATHER) | `s4_recon_gather.m` | `recon_gather.bgii`, `recon_gather.png`, `s4_op_gather.mat`(cache) | same, but non-conservative gather → **higher recovered contrast** |
 
 Run (MATLAB launches use the `run_*.m` driver wrappers to avoid inline-newline issues):
 ```bash
@@ -38,9 +39,10 @@ python3 export_inputs.py                       # stage 0
 matlab -nodisplay -r "s1_build_mesh; exit"     # stage 1: build the FEM mesh
 matlab -nodisplay -r "run_s4b"                 # stage 4 (best): two-surface recon -> recon.bgii + figures
 python3 score_recon.py                         # score recon.bgii vs groundtruth.bgii
-# variants: run_s2 (GM-volume linear), run_s3 (iterative Gauss-Newton), run_s4 (s4 without re-render)
+# variants: run_s2 (GM-volume linear), run_s3 (iterative Gauss-Newton), run_s4 (s4 without re-render),
+#           run_s4_gather (non-conservative gather -> recon_gather.bgii, higher contrast)
 ```
-Tuning (instant — uses the cached operator): `s2_recon([],alpha,beta)`,
+Tuning (instant — uses the cached operator): `s2_recon_gm([],alpha,beta)`,
 `s4_recon_surface(alpha,beta)`, `s4_sweep.m`.
 
 ---
@@ -121,13 +123,13 @@ Validated to machine precision (ratio-mode == absolute-mode) by the test
 ## Layout
 - `figures/` — `recon_surface.png` (**two-surface cortex recon vs truth + C3−C4 contrast, best**),
   `recon_lateral.png` (lateral views), `recon_scalp.png` (scalp common-mode leakage),
-  `recon_iter_C4.png` (iterative Gauss-Newton result).
+  `recon_gm_iter_C4.png` (iterative Gauss-Newton result).
 - `logs/` — stdout captures from each MATLAB run (disposable).
 
 ## Caches (regenerable)
 - `s4_op.mat` (~530 MB): cached two-surface linear operator for instant retuning via
   `s4_recon_surface(alpha,beta)` / `s4_sweep.m` — **safe to delete**, rebuilt on next run.
-  (`s2`'s `recon_op.mat` cache is likewise rebuilt by `s2_recon.m` if needed.)
+  (`s2`'s `recon_gm_op.mat` cache is likewise rebuilt by `s2_recon_gm.m` if needed.)
 
 ## Next steps
 - Add a **surface Laplacian prior** to tighten the cortical blobs (corr is still ~0.3–0.4).

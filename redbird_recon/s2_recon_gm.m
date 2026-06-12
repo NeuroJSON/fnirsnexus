@@ -1,10 +1,10 @@
-function s2_recon(peaktime, alpha, beta)
-% S2_RECON  Linear (single Gauss-Newton step) DOT image reconstruction in
-%           redbird-m, porting the Cedalion ImageRecon step of
-%           hmstandardization_challenge_prep.
+function s2_recon_gm(peaktime, alpha, beta)
+% S2_RECON_GM  Linear (single Gauss-Newton step) DOT image reconstruction in
+%           redbird-m on the GRAY-MATTER volume nodes, porting the Cedalion
+%           ImageRecon step of hmstandardization_challenge_prep.
 %
-%   s2_recon()        % reconstruct at the HRF peak (t ~ 10 s)
-%   s2_recon(10.0)    % reconstruct at a chosen reltime (s)
+%   s2_recon_gm()        % reconstruct at the HRF peak (t ~ 10 s)
+%   s2_recon_gm(10.0)    % reconstruct at a chosen reltime (s)
 %
 % A single Gauss-Newton iteration == a linear reconstruction. To match Cedalion's
 % OD-domain linear operator on a SPARSE fNIRS montage we build the operator by hand
@@ -66,7 +66,7 @@ fprintf('reconstructing at reltime=%.2f s (index %d)\n', taxis(tidx), tidx);
 % the forward solve + Jacobian is the only expensive step and is independent of
 % the regularization and reconstruction time point; cache it so lambda/time can be
 % tuned instantly.
-cachef = fullfile(here, 'recon_op.mat');
+cachef = fullfile(here, 'recon_gm_op.mat');
 if exist(cachef, 'file')
     fprintf('loading cached recon operator: %s\n', cachef);
     S = load(cachef);
@@ -228,8 +228,8 @@ out.GIFTIHeader = struct('Version', '1.0', ...
                                             'LengthUnit', 'mm', 'ReconTime_s', taxis(tidx)));
 out.GIFTIData.MeshVertex3 = struct('Data', single(cortex), 'Properties', props);
 out.GIFTIData.MeshTri3    = struct('Data', gt.GIFTIData.MeshTri3.Data);
-savebj('', out, 'FileName', fullfile(here, 'recon.bgii'), 'Compression', 'zlib');
-fprintf('saved recon.bgii\n');
+savebj('', out, 'FileName', fullfile(here, 'recon_gm.bgii'), 'Compression', 'zlib');
+fprintf('saved recon_gm.bgii\n');
 end
 
 % =========================================================================

@@ -1,5 +1,5 @@
 try
-    s2_recon;
+    s2_recon_gm;
 catch ME
     fprintf('ERR: %s\n', ME.message);
     for k = 1:numel(ME.stack)
