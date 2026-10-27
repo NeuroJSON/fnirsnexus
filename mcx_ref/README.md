@@ -131,24 +131,36 @@ The detector's launch point `b₀` is found by marching outward from the detecto
 
 ### 3.4 Sensitivity (Jacobian) and normalization
 
-For channel *p* = (source *s*, detector *d*), the (Born) fluence Jacobian for an absorption change
-in voxel *v* is negative — raising μa lowers the signal — and is what MCX's adjoint mode returns
-as `jmua`:
+**Notation.** A channel is a source–detector pair (*s*, *d*); arrays index the 497 channels by
+*p* ≡ (*s*, *d*) in the pair order of §5.1. Lowercase φ are 3-D fluence *fields*, capital Φ are
+per-channel *scalars*:
+
+| Symbol | Meaning | Sign / unit |
+|---|---|---|
+| φ_s(v) | fluence field of source *s* (pencil beam) at voxel *v* | ≥ 0, mm⁻² per photon |
+| φ_d(v) | fluence field of detector *d*'s adjoint (Lambertian disk launch) | ≥ 0, mm⁻² per photon |
+| Φ_sd | baseline signal of channel (*s*, *d*), set to 4 R̄_sd (below) | ≥ 0, mm⁻² per photon |
+| J_sd(v) | fluence Jacobian ∂Φ_sd/∂μa(v) (Born) | ≤ 0, mm⁻² · mm³ per photon |
+| L_sd(v) | OD sensitivity ∂OD_sd/∂μa(v) = mean partial pathlength in *v* | ≥ 0, mm |
+
+The fluence Jacobian is negative — raising μa lowers the signal — and is what MCX's adjoint mode
+returns as `jmua`:
 
 ```
-∂Φ_p/∂μa(v) = −φ_s(v) · φ_d(v) · V_vox                                   (V_vox = 1 mm³)
+J_sd(v) = ∂Φ_sd/∂μa(v) = −φ_s(v) · φ_d(v) · V_vox                       (V_vox = 1 mm³)
 ```
 
-Since OD = −ln Φ, the Rytov (OD) sensitivity is positive:
+The only physical sign change is from fluence to optical density, OD_sd = −ln Φ_sd (Rytov):
 
 ```
-∂OD_p/∂μa(v) = −(1/Φ_p) ∂Φ_p/∂μa(v) = J_p(v) / Φ_p ,      J_p(v) ≡ φ_s(v) · φ_d(v) · V_vox ≥ 0
+L_sd(v) = ∂OD_sd/∂μa(v) = −J_sd(v) / Φ_sd = φ_s(v) · φ_d(v) · V_vox / Φ_sd  ≥ 0
+ΔOD_sd  = Σ_v L_sd(v) · Δμa(v)
 ```
 
-where φ_s is the source fluence and φ_d is the fluence of the detector's adjoint (Lambertian)
-source. **Throughout this document and in all saved arrays, J_p denotes this positive magnitude**
-(the code computes it directly as `phi_s .* phi_d * Vvox`), so `Lvox`, `Ltotal` and `maxOD` are
-positive OD sensitivities / OD changes; the physical fluence Jacobian is −J_p.
+L_sd(v) is the mean partial pathlength that detected photons spend in voxel *v*, and
+Σ_v L_sd(v) is their mean total path (the validation table below checks this against detected photons). All saved
+arrays (`Lvox`, `Ltotal`, `maxOD`) are this positive L_sd or ΔOD; the code computes it as
+`phi_s .* phi_d * Vvox ./ Phi`.
 
 **Why Lambertian, and the factor 4.** A detector that counts every photon leaving through its
 disk (area A) has, by reciprocity, the adjoint source "radiance-uniform (cosine-weighted) inward
@@ -156,14 +168,15 @@ emission over the disk". The probability that a photon at *v* (isotropic radianc
 detected is then
 
 ```
-P_det(v) = (A/4) · φ_Lambert(v)      (1/4π × π from the cosine-weighted source)
+P_det(v) = (A/4) · φ_d(v)      (1/4π × π from the cosine-weighted source)
 ```
 
-and the detected signal is M_p = A · R̄_p, with R̄_p the mean diffuse reflectance under the disk.
-Hence
+and the detected signal is M_sd = A · R̄_sd, with R̄_sd the mean diffuse reflectance of source
+*s* under detector *d*'s disk. An absorption change δμa removes δM_sd = −A/4 · Σ_v φ_s φ_d δμa V_vox,
+hence
 
 ```
-δOD_p = −δM_p / M_p = Σ_v φ_s(v) φ_d(v) δμa(v) V_vox / (4 R̄_p)    →    Φ_p = 4 R̄_p
+δOD_sd = −δM_sd / M_sd = Σ_v φ_s(v) φ_d(v) δμa(v) V_vox / (4 R̄_sd)    →    Φ_sd = 4 R̄_sd
 ```
 
 **Diffuse reflectance from the interior fluence** (Kienle & Patterson, JOSA A 14:246, 1997, Eq. 7).
@@ -190,7 +203,7 @@ photons/source, 1.5 mm detectors at the same positions, per-photon partial paths
 | quantity | fluence-only model / detected photons |
 |---|---|
 | intensity (R̄ × disk area vs detected weight) | 0.967 median, r(log) = 0.988 |
-| total path Σ_v J/Φ vs ⟨L_total⟩ | **1.050** (DPF 4.68 vs 4.88) |
+| total path Σ_v L_sd(v) vs ⟨L_total⟩ | **1.050** (DPF 4.68 vs 4.88) |
 | C3 / C4 region partial path | 1.101 / 0.927 (r = 0.994 / 0.990) |
 
 A collimated detector adjoint (MCX's adjoint mode, and Cedalion's pencil beams) overstates
@@ -211,7 +224,7 @@ the sensitivity by 1.6–1.8×.
 3. **Peak channel ΔOD** (first-order Rytov, linear in the activation amplitude):
 
    ```
-   maxOD(p, λ, c) = Σ_v [J_p(v)/Φ_p] · Δμa(v, λ, c)
+   maxOD(p, λ, c) = Σ_v L_p(v) · Δμa(v, λ, c)        (p ≡ (s, d))
    ```
 
    This is stored as `maxOD`, and `dOD_amp(a) = a · maxOD` for a = 0, 0.05, …, 1.
@@ -340,9 +353,9 @@ Notes:
 | `pairs`, `wavelengths`, `trialtype` | | as in §5.1 |
 | `maxOD` | [497 × 2 × 2] | peak ΔOD (§3.5), copied into `hrf_measurement.jdb` |
 | `amp`, `dOD_amp` | [21], [497 × 2 × 2 × 21] | ΔOD at activation amplitude a ∈ [0, 1] (linear: a · maxOD) |
-| `Phi` | [497] | Φ_p used for normalization (= `Phi_kienle`), mm⁻² per photon |
-| `Phi_kienle`, `Phi_footprint` | [497] | 4 R̄_p (Kienle) / mean fluence under the disk (alternative) |
-| `Ltotal` | [497] | Σ_v J_p/Φ_p = mean total path (mm) |
+| `Phi` | [497] | Φ_sd used for normalization (= `Phi_kienle`), mm⁻² per photon |
+| `Phi_kienle`, `Phi_footprint` | [497] | 4 R̄_sd (Kienle) / mean fluence under the disk (alternative) |
+| `Ltotal` | [497] | Σ_v L_sd(v) = mean total path (mm) |
 | `Lregion` | [497 × 2] | sensitivity summed over the C3 / C4 region (Δμa ≥ 1% of peak), mm |
 | `sds` | [497] | source–detector distance (mm), 15.6–43.1 |
 | `maxOD_cedalion` | [497 × 2 × 2] | as in §5.1 |
@@ -362,7 +375,7 @@ Notes:
 |---|---|
 | `fluence/optodeNNN.bin` | MCX fluence of optode NNN (001–056 sources, 057–200 detectors): raw little-endian **float32**, MATLAB column-major, cropped grid **189 × 222 × 253** (§3.1). Voxel (i, j, k) of the crop is full-grid voxel (i+2, j+11, k) (1-based); its RAS centre is A · [i+1, j+10, k−1]ᵀ. Units mm⁻² per launched photon, time-integrated over 0–5 ns. |
 | `fluence/optodeNNN.sig` | ASCII settings signature `[nphoton detradius dims(3) lo(3) seed (1 = Lambertian detector)]`; matching fluences are reused |
-| `fluence/jac_brain.mat` | `Lvox` single [1,619,514 × 497] = J_p(v)/Φ_p (mm) on the gray/white voxels (`voxc`, linear index in the crop): reweight with any brain perturbation, Σ_v Lvox(v, p) Δμa(v) |
+| `fluence/jac_brain.mat` | `Lvox` single [1,619,514 × 497] = L_sd(v) (mm, column p ≡ (s, d)) on the gray/white voxels (`voxc`, linear index in the crop): reweight with any brain perturbation, Σ_v Lvox(v, p) Δμa(v) |
 | `fluence_cedalion/` | the same with Cedalion's exact conventions (`mcx_cedalion_check.m`) |
 | `cache/ppath_srcNN.mat` | detected-photon partial paths of the validation run (`mcx_ppath.m`) |
 
