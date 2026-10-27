@@ -8,19 +8,21 @@ redbird parameter mesh matches Cedalion's ``TwoSurfaceHeadModel`` (brain_only
 Method
 ------
   * redbirdpy FEM forward -> baseline detphi + fluence phi (5-tissue baseline)
-  * nodal mua Jacobian on the forward mesh (``rb.jac``)
-  * conservatively aggregate (node->vertex SUM) the nodal Jacobian onto the
-    surface vertices Vsurf=[cortex; scalp] (each forward node assigned to its
-    NEAREST surface vertex, columns summed -> total sensitivity conserved)
+  * aggregate the volume sensitivity onto the surface vertices Vsurf=[cortex; scalp]:
+    --agg voxel (default), as Cedalion's compute_sensitivity: FEM fluences interpolated
+      (barycentric) to the gray/white and scalp voxel centres, J(v) = -phi_s phi_d Vvox,
+      summed with Cedalion's voxel_to_vertex_brain/scalp maps (skull/CSF dropped)
+    --agg node: nodal mua Jacobian (``rb.jac``), each forward node -> NEAREST surface
+      vertex, columns summed (all tissues, total sensitivity conserved)
   * Rytov normalize (J / ymodel), chromophore stack -> W
   * c_meas measurement whitening (pre-stim dOD variance) + depth weighting
   * Tikhonov solve -> dHbO/dHbR on the two surfaces
 
 Scores the cortex part against the ground truth and reports scalp leakage. The
 surface operator is cached in ``s4_op.jdb`` so alpha/beta/c_meas can be retuned
-without re-running the forward.
+without re-running the forward (rebuilt when the cached ``agg`` differs).
 
-Usage:  python3 s4_recon_surface.py [--alpha 0.003] [--beta 0.003]
+Usage:  python3 s4_recon_surface.py [--alpha 0.003] [--beta 0.003] [--agg voxel|node]
 
 Assumes redbirdpy, iso2mesh and jdata are importable.
 """
@@ -36,12 +38,15 @@ from scipy import sparse
 import nirs_common as nc
 
 
-def build_operator(meas, Vsurf, ncortex, nscalp, cachef):
+def build_operator(meas, Vsurf, ncortex, nscalp, cachef, agg="voxel"):
     """Build (or load) the cached two-surface Rytov operator Anorm + c_meas."""
     if cachef.exists():
-        print("loading cached surface operator", cachef.name)
         S = jd.loadjd(str(cachef))
-        return np.asarray(S["Anorm"]), np.asarray(S["cmeas"])
+        cagg = str(S.get("agg", "node"))                  # caches predating agg
+        if cagg == agg:
+            print("loading cached surface operator %s (%s aggregation)" % (cachef.name, agg))
+            return np.asarray(S["Anorm"]), np.asarray(S["cmeas"])
+        print("cached operator uses %s aggregation; rebuilding with %s" % (cagg, agg))
 
     pairs, wlkey = meas["pairs"], meas["wlkey"]
     npair, nwl = pairs.shape[0], len(wlkey)
@@ -59,20 +64,25 @@ def build_operator(meas, Vsurf, ncortex, nscalp, cachef):
         sd[key][:, 2] = 1
     detphi, phi = nc.baseline_forward(cfg, sd)
 
-    # conservative node->vertex aggregation: each forward node -> nearest surface
-    # vertex, nodal-Jacobian columns SUMMED (rb.jac is volume-integrated, so the
-    # sum conserves total sensitivity); Sagg is [Nfwd x Nsurf].
-    vnode = nc.nearestnodes(Vsurf, node)
-    Sagg = sparse.csr_matrix(
-        (np.ones(node.shape[0]), (np.arange(node.shape[0]), vnode)),
-        shape=(node.shape[0], Vsurf.shape[0]),
-    )
-    sdmeas = nc.measured_sd(pairs, ns)
-    Js = {}
-    for key in wlkey:
-        Jw, _ = rb.jac(sdmeas, phi[key], cfg["deldotdel"], cfg["elem"], cfg["evol"])
-        Js[key] = (Sagg.T @ Jw.T).T  # [npair x Nsurf] (summed)
-        del Jw
+    if agg == "voxel":
+        # Cedalion's compute_sensitivity: voxel-centre fluence products summed with its
+        # voxel_to_vertex_brain/scalp maps (gray/white -> cortex, scalp -> scalp)
+        Js = nc.voxel_jacobian(node, elem, phi, pairs, ns, ncortex, Vsurf.shape[0], wlkey)
+    else:
+        # conservative node->vertex aggregation: each forward node -> nearest surface
+        # vertex, nodal-Jacobian columns SUMMED (rb.jac is volume-integrated, so the
+        # sum conserves total sensitivity); Sagg is [Nfwd x Nsurf].
+        vnode = nc.nearestnodes(Vsurf, node)
+        Sagg = sparse.csr_matrix(
+            (np.ones(node.shape[0]), (np.arange(node.shape[0]), vnode)),
+            shape=(node.shape[0], Vsurf.shape[0]),
+        )
+        sdmeas = nc.measured_sd(pairs, ns)
+        Js = {}
+        for key in wlkey:
+            Jw, _ = rb.jac(sdmeas, phi[key], cfg["deldotdel"], cfg["elem"], cfg["evol"])
+            Js[key] = (Sagg.T @ Jw.T).T  # [npair x Nsurf] (summed)
+            del Jw
 
     Amat = rb.matflat(rb.jacchrome(Js, ["hbo", "hbr"]))  # [npair*nwl x 2*Nsurf]
     ymodel = nc.stack_ymodel(detphi, pairs, wlkey, npair)
@@ -86,7 +96,7 @@ def build_operator(meas, Vsurf, ncortex, nscalp, cachef):
         cmeas[w * npair : (w + 1) * npair] = v
 
     jd.savejd(
-        {"Anorm": Anorm, "cmeas": cmeas, "ncortex": ncortex, "nscalp": nscalp},
+        {"Anorm": Anorm, "cmeas": cmeas, "ncortex": ncortex, "nscalp": nscalp, "agg": agg},
         str(cachef),
         compression="zlib",
     )
@@ -94,7 +104,7 @@ def build_operator(meas, Vsurf, ncortex, nscalp, cachef):
     return Anorm, cmeas
 
 
-def main(alpha=0.003, beta=0.003):
+def main(alpha=0.003, beta=0.003, agg="voxel"):
     meas = nc.load_meas()
     cortex, faces, props, gt = nc.load_truth()
     ncortex = cortex.shape[0]
@@ -104,7 +114,7 @@ def main(alpha=0.003, beta=0.003):
     Nsurf = ncortex + nscalp
     print("two-surface unknowns: %d cortex + %d scalp = %d" % (ncortex, nscalp, Nsurf))
 
-    Anorm, cmeas = build_operator(meas, Vsurf, ncortex, nscalp, nc.HERE / "s4_op.jdb")
+    Anorm, cmeas = build_operator(meas, Vsurf, ncortex, nscalp, nc.HERE / "s4_op.jdb", agg)
 
     # weighting + Tikhonov inverse operator
     wrow = 1.0 / np.sqrt(cmeas + 1e-6 * cmeas.max())  # c_meas whitening
@@ -222,5 +232,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--alpha", type=float, default=0.003)
     ap.add_argument("--beta", type=float, default=0.003)
+    ap.add_argument("--agg", choices=["voxel", "node"], default="voxel")
     args = ap.parse_args()
-    main(args.alpha, args.beta)
+    main(args.alpha, args.beta, args.agg)

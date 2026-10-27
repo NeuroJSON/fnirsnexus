@@ -1,4 +1,4 @@
-function s4_recon_surface(alpha, beta)
+function s4_recon_surface(alpha, beta, agg)
 % S4_RECON_SURFACE  Reconstruct on Cedalion's TWO-SURFACE unknown space (cortex +
 % scalp), instead of the gray-matter volume band used by s2/s3. This makes the
 % redbird LHS (parameter mesh) match Cedalion's `TwoSurfaceHeadModel` with
@@ -6,25 +6,34 @@ function s4_recon_surface(alpha, beta)
 %
 %   s4_recon_surface()            % alpha=0.01, beta=1
 %   s4_recon_surface(0.03, 0.5)
+%   s4_recon_surface(0.003, 0.01, 'node')   % previous node->vertex aggregation
 %
 % Method:
 %   * redbird FEM forward -> baseline detphi + fluence phi (homogeneous/5-tissue)
-%   * NODAL Jacobian on the forward mesh (rbfemmatrix, no remap)
-%   * conservatively aggregate (node->vertex SUM) the nodal Jacobian onto the
-%     surface vertices Vsurf=[cortex; scalp] (each node -> nearest vertex, summed,
-%     total sensitivity conserved) -> a 2-D surface operator
+%   * aggregate the volume sensitivity onto the surface vertices Vsurf=[cortex; scalp]
+%     -> a 2-D surface operator:
+%     agg='voxel' (default), as Cedalion's compute_sensitivity: the FEM fluences are
+%       interpolated (barycentric) to the centres of the gray/white and scalp voxels,
+%       J(v) = -phi_s(v) phi_d(v) Vvox, and summed into vertices with Cedalion's own
+%       voxel_to_vertex_brain/scalp maps; skull and CSF voxels are in neither map
+%     agg='node': rbfemmatrix nodal Jacobian, every node -> nearest vertex of Vsurf,
+%       summed (all tissues, total sensitivity conserved)
 %   * Rytov normalize (J/ymodel), chromophore stack -> W
 %   * measurement whitening with c_meas (pre-stim dOD variance) + depth weighting
 %   * Tikhonov solve -> dHbO/dHbR on the two surfaces
 % Reconstructs C3, C4 and the C3-C4 contrast; scores the cortex part against the
 % ground truth (same 25k vertices) and reports scalp leakage. Caches the surface
-% operator in s4_op.mat so alpha/beta/c_meas can be retuned without a new forward.
+% operator in s4_op.mat so alpha/beta/c_meas can be retuned without a new forward
+% (rebuilt when the cached aggregation differs from agg).
 
 if nargin < 1 || isempty(alpha)
     alpha = 0.01;
 end
 if nargin < 2 || isempty(beta)
     beta  = 1;
+end
+if nargin < 3 || isempty(agg)
+    agg = 'voxel';
 end
 here = fileparts(mfilename('fullpath'));
 hm = fullfile(here, '..', 'hm_icbm152');
@@ -60,8 +69,16 @@ nwl = numel(wl);
 
 %% ---- build (or load) the surface operator -------------------------------
 cachef = fullfile(here, 's4_op.mat');
+cacheagg = '';
 if exist(cachef, 'file')
-    fprintf('loading cached surface operator %s\n', cachef);
+    cacheagg = 'node';                                    % caches predating agg
+    if ismember('agg', who('-file', cachef))
+        S = load(cachef, 'agg');
+        cacheagg = S.agg;
+    end
+end
+if strcmp(cacheagg, agg)
+    fprintf('loading cached surface operator %s (%s aggregation)\n', cachef, agg);
     S = load(cachef);
     Anorm = S.Anorm;
     cmeas = S.cmeas;
@@ -117,22 +134,70 @@ else
         phimap = phi(1).phi;
     end
 
-    % conservative node->vertex aggregation (matches Cedalion's binary voxel->vertex
-    % SUM): assign each forward node to its NEAREST surface vertex and SUM the nodal
-    % Jacobian columns. rbfemmatrix's nodal Jacobian is volume-integrated, so the sum
-    % conserves the total sensitivity (each node counted exactly once) and is robust
-    % to non-uniform FEM node density -- unlike the previous nearest-node gather,
-    % which sampled one node per vertex (aliasing + dropped nodes, not conservative).
-    vnode = nearestnodes(Vsurf, node);                       % nearest surf vertex per fwd node
-    Sagg = sparse(1:size(node, 1), vnode, 1, size(node, 1), size(Vsurf, 1)); % [Nfwd x Nsurf]
-    sdmeas = [pairs(:, 1), pairs(:, 2) + ns, ones(npair, 1), ones(npair, 1)];
+    Nsurf = size(Vsurf, 1);
     Js = containers.Map();
-    for w = 1:nwl
-        cfgw = cfg;
-        cfgw.prop = cfg.prop(wlkey{w});
-        Jw = rbfemmatrix(cfgw, sdmeas, phimap(wlkey{w}), cfg.deldotdel, 1);  % [npair x Nfwd]
-        Js(wlkey{w}) = Jw * Sagg;                                           % [npair x Nsurf] (summed)
-        clear Jw;
+    if strcmp(agg, 'voxel')
+        % Cedalion's compute_sensitivity: fluence products at the voxel centres of the
+        % gray/white (-> cortex) and scalp (-> scalp) masks, summed with Cedalion's
+        % voxel_to_vertex_brain/scalp maps; skull/CSF voxels are dropped
+        nii = loadnifti(fullfile(hm, 'mask_skin.nii'));
+        dims = size(nii.NIFTIData);
+        clear nii;
+        [bvox, bvert] = readvox2vert(fullfile(hm, 'voxel_to_vertex_brain.mtx.gz'), dims);
+        [svox, svert] = readvox2vert(fullfile(hm, 'voxel_to_vertex_scalp.mtx.gz'), dims);
+        vox = [bvox; svox];
+        nvox = numel(vox);
+        [ii, jj, kk] = ind2sub(dims, vox);
+        pts = double((A(1:3, 1:3) * ([ii, jj, kk] - 1)' + A(1:3, 4))');  % voxel centres, RAS
+        [ti, bc] = pointLocation(triangulation(double(elem(:, 1:4)), double(node)), pts);
+        outside = isnan(ti);
+        cols = ones(nvox, 4);
+        vals = zeros(nvox, 4);
+        cols(~outside, :) = elem(ti(~outside), 1:4);
+        vals(~outside, :) = bc(~outside, :);
+        cols(outside, 1) = nearestnodes(node, pts(outside, :));
+        vals(outside, 1) = 1;
+        P = sparse(repmat((1:nvox)', 4, 1), cols(:), vals(:), nvox, size(node, 1));
+        G = sparse(1:nvox, [bvert; ncortex + svert], 1, nvox, Nsurf);
+        Vvox = abs(det(A(1:3, 1:3)));
+        fprintf('voxel aggregation: %d brain + %d scalp voxels (%d outside the mesh -> nearest node)\n', ...
+                numel(bvox), numel(svox), nnz(outside));
+        clear pts ti bc cols vals ii jj kk;
+        for w = 1:nwl
+            phw = phimap(wlkey{w});
+            Pphi = zeros(nvox, size(phw, 2), 'single');
+            for c = 1:20:size(phw, 2)
+                cc = c:min(c + 19, size(phw, 2));
+                Pphi(:, cc) = single(P * phw(:, cc));
+            end
+            Jw = zeros(npair, Nsurf);
+            for s = 1:ns
+                prow = find(pairs(:, 1) == s);
+                if isempty(prow)
+                    continue
+                end
+                Jv = double(Pphi(:, s) .* Pphi(:, ns + pairs(prow, 2)));
+                Jw(prow, :) = -Vvox * (G' * Jv)';
+            end
+            Js(wlkey{w}) = Jw;                                             % [npair x Nsurf]
+            clear Pphi Jw;
+        end
+        clear P G;
+    else
+        % conservative node->vertex aggregation: assign each forward node to its NEAREST
+        % surface vertex and SUM the nodal Jacobian columns. rbfemmatrix's nodal Jacobian
+        % is volume-integrated, so the sum conserves the total sensitivity (each node
+        % counted exactly once), but it includes skull/CSF and is coarse per vertex
+        vnode = nearestnodes(Vsurf, node);                   % nearest surf vertex per fwd node
+        Sagg = sparse(1:size(node, 1), vnode, 1, size(node, 1), Nsurf);   % [Nfwd x Nsurf]
+        sdmeas = [pairs(:, 1), pairs(:, 2) + ns, ones(npair, 1), ones(npair, 1)];
+        for w = 1:nwl
+            cfgw = cfg;
+            cfgw.prop = cfg.prop(wlkey{w});
+            Jw = rbfemmatrix(cfgw, sdmeas, phimap(wlkey{w}), cfg.deldotdel, 1);  % [npair x Nfwd]
+            Js(wlkey{w}) = Jw * Sagg;                                       % [npair x Nsurf] (summed)
+            clear Jw;
+        end
     end
     Jchrome = rbjacchrome(Js, {'hbo', 'hbr'});
     Amat = rbmatflat(Jchrome);                              % [npair*nwl x 2*Nsurf]
@@ -151,7 +216,7 @@ else
         v = var(reshape(dOD(:, w, pre, :), npair, []), 0, 2);   % across pre-stim & trials
         cmeas((w - 1) * npair + (1:npair)) = v;
     end
-    save(cachef, 'Anorm', 'cmeas', 'ncortex', 'nscalp', '-v7.3');
+    save(cachef, 'Anorm', 'cmeas', 'ncortex', 'nscalp', 'agg', '-v7.3');
     fprintf('cached surface operator %s\n', cachef);
 end
 Nsurf = ncortex + nscalp;
@@ -288,6 +353,27 @@ for i = 1:size(q, 1)
     d = node - q(i, :);
     [~, idx(i)] = min(sum(d .* d, 2));
 end
+end
+
+function [vox, vert] = readvox2vert(fname, dims)
+% Cedalion's Matrix-Market voxel->vertex map (rows = C-order flat voxel index)
+tmp = tempname;
+gunzip(fname, tmp);
+[~, base] = fileparts(fname);
+fid = fopen(fullfile(tmp, base), 'rt');
+line = fgetl(fid);
+while startsWith(line, '%')
+    line = fgetl(fid);
+end
+d = textscan(fid, '%f %f %f');
+fclose(fid);
+rmdir(tmp, 's');
+r = d{1} - 1;
+k = mod(r, dims(3));
+j = mod(floor(r / dims(3)), dims(2));
+i = floor(r / (dims(2) * dims(3)));
+vox = sub2ind(dims, i + 1, j + 1, k + 1);
+vert = d{2};
 end
 
 function A = getaffine(nii)

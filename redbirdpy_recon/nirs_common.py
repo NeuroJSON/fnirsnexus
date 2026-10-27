@@ -118,6 +118,105 @@ def nearestnodes(node, q):
     return np.asarray(idx, dtype=int)
 
 
+def read_vox2vert(fname, dims):
+    """Cedalion's Matrix-Market voxel->vertex map -> (flat C-order voxel idx, 0-based vertex)."""
+    import gzip
+    from scipy.io import mmread
+
+    with gzip.open(str(fname), "rb") as fh:
+        m = mmread(fh).tocoo()
+    if m.shape[0] != int(np.prod(dims)):
+        raise ValueError("voxel map has %d rows, volume has %d voxels" % (m.shape[0], np.prod(dims)))
+    return m.row.astype(np.int64), m.col.astype(np.int64)
+
+
+def voxel_interp(node, elem, pts, k=(32, 256), chunk=100000):
+    """Sparse barycentric interpolation P [npts x nnode] of nodal values at ``pts``.
+
+    Vectorized point location: the k[0] tets with the nearest centroids are tested per
+    point, the misses again with k[1]; points in none of them (outside the mesh) take
+    their nearest node (as the MATLAB pointLocation + knnsearch fallback).
+    ``elem`` is 1-based (iso2mesh). Returns (P, number of points outside)."""
+    from scipy import sparse
+
+    tet = elem[:, :4].astype(np.int64) - 1
+    tv = node[tet]                                         # (M, 4, 3)
+    T = (tv[:, :3, :] - tv[:, 3:4, :]).transpose(0, 2, 1)  # (M, 3, 3)
+    ok = np.abs(np.linalg.det(T)) > 1e-12
+    invT = np.zeros_like(T)
+    invT[ok] = np.linalg.inv(T[ok])
+    tree = cKDTree(tv.mean(axis=1))
+    npts = pts.shape[0]
+    cols = np.zeros((npts, 4), dtype=np.int64)
+    vals = np.zeros((npts, 4))
+    found = np.zeros(npts, dtype=bool)
+    for kk in k:
+        todo = np.nonzero(~found)[0]
+        step = max(1, chunk * k[0] // kk)
+        for c0 in range(0, todo.size, step):
+            ids = todo[c0 : c0 + step]
+            p = pts[ids]
+            _, cand = tree.query(p, k=kk)                  # (n, kk)
+            b = np.einsum("nkij,nkj->nki", invT[cand], p[:, None, :] - tv[cand, 3, :])
+            b4 = 1.0 - b.sum(axis=2)
+            inside = (b >= -1e-9).all(axis=2) & (b4 >= -1e-9) & ok[cand]
+            hit = inside.any(axis=1)
+            j = inside.argmax(axis=1)
+            r = np.nonzero(hit)[0]
+            t = cand[r, j[r]]
+            cols[ids[r]] = tet[t]
+            vals[ids[r], :3] = b[r, j[r]]
+            vals[ids[r], 3] = b4[r, j[r]]
+            found[ids[r]] = True
+    out = np.nonzero(~found)[0]
+    cols[out, 0] = nearestnodes(node, pts[out])
+    vals[out, 0] = 1.0
+    P = sparse.csr_matrix(
+        (vals.ravel(), (np.repeat(np.arange(npts), 4), cols.ravel())), shape=(npts, node.shape[0])
+    )
+    return P, out.size
+
+
+def voxel_jacobian(node, elem, phi, pairs, ns, ncortex, nsurf, wlkey):
+    """Cedalion's compute_sensitivity aggregation for a FEM forward.
+
+    The nodal fluences are interpolated to the centres of the gray/white (cortex) and
+    scalp voxels, J(v) = -phi_s(v) phi_d(v) Vvox, and summed into vertices with
+    Cedalion's voxel_to_vertex_brain/scalp maps (skull/CSF voxels are dropped).
+    Returns {wl: [npair x nsurf]}."""
+    from scipy import sparse
+
+    nii = jd.loadjnifti(str(HM / "mask_skin.nii"))
+    dims = np.asarray(nii["NIFTIData"]).shape
+    A = get_affine(nii)
+    bvox, bvert = read_vox2vert(HM / "voxel_to_vertex_brain.mtx.gz", dims)
+    svox, svert = read_vox2vert(HM / "voxel_to_vertex_scalp.mtx.gz", dims)
+    vox = np.concatenate([bvox, svox])
+    ijk = np.column_stack(np.unravel_index(vox, dims, order="C")).astype(float)
+    pts = (A[:3, :3] @ ijk.T + A[:3, 3:4]).T              # voxel centres, RAS
+    P, nout = voxel_interp(node, elem, pts)
+    G = sparse.csr_matrix(
+        (np.ones(vox.size), (np.arange(vox.size), np.concatenate([bvert, ncortex + svert]))),
+        shape=(vox.size, nsurf),
+    )
+    vvox = abs(np.linalg.det(A[:3, :3]))
+    print("voxel aggregation: %d brain + %d scalp voxels (%d outside the mesh -> nearest node)"
+          % (bvox.size, svox.size, nout))
+    Js = {}
+    for key in wlkey:
+        pphi = np.asarray(P @ np.asarray(phi[key]), dtype=np.float32)   # [nvox x nopt]
+        Jw = np.zeros((pairs.shape[0], nsurf))
+        for s in range(ns):
+            prow = np.nonzero(pairs[:, 0] == s + 1)[0]
+            if prow.size == 0:
+                continue
+            jv = pphi[:, [s]].astype(float) * pphi[:, ns + pairs[prow, 1] - 1]
+            Jw[prow, :] = -vvox * np.asarray(G.T @ jv).T
+        Js[key] = Jw
+        del pphi
+    return Js
+
+
 def snap2surf(node, face, nv, p, push=1.0):
     """Project optodes ``p`` onto the mesh boundary; return (pos, inward dir).
 

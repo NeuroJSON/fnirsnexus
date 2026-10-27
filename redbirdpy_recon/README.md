@@ -24,7 +24,7 @@ tissue masks / surfaces live in `../hm_icbm152`. No local toolbox paths are hard
 | 1. mesh | `s1_build_mesh.py` | `../redbird_recon/head_mesh.bmsh` | 5-tissue tet mesh from ICBM masks (CGAL `v2m`), RAS mm |
 | 2. linear recon (GM volume) | `s2_recon_gm.py` | `recon_gm.bgii`, `recon_gm_op.jdb`(cache) | single Rytov step on gray-matter nodes |
 | 3. iterative recon (GM volume) | `s3_recon_gm_iter.py` | `figures/recon_gm_iter_C4.png` | official `rb.run`+`recon["isratio"]`, N Gauss-Newton iters |
-| 4. two-surface recon (conservative SUM) | `s4_recon_surface.py` | **`recon.bgii`**, `figures/recon_surface.png`, `s4_op.jdb`(cache) | **cortex+scalp unknowns; best localization** |
+| 4. two-surface recon (Cedalion voxel aggregation) | `s4_recon_surface.py` | **`../redbird_recon/recon.bgii`**, `figures/recon_surface.png`, `s4_op.jdb`(cache) | **cortex+scalp unknowns; best localization**; `--agg node` for the previous node→vertex SUM |
 | 4b. two-surface recon (GATHER) | `s4_recon_gather.py` | `recon_gather.bgii`, `figures/recon_gather.png`, `s4_op_gather.jdb`(cache) | same, but non-conservative gather → **higher recovered contrast** |
 | score | `score_recon.py` | stdout | peak-err / corr vs ground truth |
 | render | `render_lateral.py`, `render_scalp.py` | `figures/recon_lateral.png`, `figures/recon_scalp.png` | lateral cortex + scalp-leakage figures |
@@ -48,10 +48,19 @@ All rendered figures are written to `figures/` (matching the MATLAB `redbird_rec
 
 ### Aggregation variants (`s4_recon_surface.py` vs `s4_recon_gather.py`)
 
+* **Cedalion voxel aggregation** (`s4_recon_surface.py`, default `--agg voxel`; as
+  `../redbird_recon/s4_recon_surface.m`): the FEM fluences are interpolated (barycentric,
+  `nc.voxel_interp`) to the centres of the gray/white and scalp voxels,
+  `J(v) = −φ_s(v)·φ_d(v)·V`, and summed into vertices with Cedalion's own
+  `voxel_to_vertex_brain/scalp.mtx.gz` (`nc.voxel_jacobian`); skull/CSF voxels are dropped.
+  Matches the MATLAB port (C3 3.6 mm / corr 0.275, C4 42.2 mm / 0.449 at α=0.003, β=0.01).
+  `s4_op.jdb` stores `agg` and is rebuilt when it differs. Needs jdata ≥ 0.9.5
+  (0.9.3's `loadjnifti` fails on uncompressed `.nii`).
+
 Both map the nodal forward Jacobian onto the surface vertices; they differ only in
 how:
 
-* **conservative SUM** (`s4_recon_surface.py`): each forward node → its nearest surface
+* **conservative SUM** (`s4_recon_surface.py --agg node`): each forward node → its nearest surface
   vertex, columns **summed** (total sensitivity conserved). Smoother, well-localized,
   lower recovered peak (~0.6–0.9 µM at `α=β=0.003`).
 * **non-conservative GATHER** (`s4_recon_gather.py`): each surface vertex ← its single

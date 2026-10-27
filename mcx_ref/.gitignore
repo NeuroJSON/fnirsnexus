@@ -1,0 +1,9 @@
+# regenerable MCX outputs (GBs)
+fluence/
+cache/
+fluence_cedalion/
+logs/
+__pycache__/
+# Cedalion-convention Adot (61 MB), regenerate with mcx_cedalion_check.m
+adot_cedalion.mat
+*.log

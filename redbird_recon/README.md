@@ -30,7 +30,8 @@ the sharpest **C3 ≈ 3.7 mm**. See `recon_surface.png` / `recon_scalp.png`.
 | 1. mesh | `s1_build_mesh.m` (iso2mesh) | `head_mesh.bmsh` | 5-tissue tet mesh from ICBM masks, RAS mm |
 | 2. linear recon (GM volume) | `s2_recon_gm.m` | `recon_gm.bgii`, `recon_gm_op.mat`(cache) | single Rytov step on gray-matter nodes |
 | 3. iterative recon (GM volume) | `s3_recon_gm_iter.m` | `figures/recon_gm_iter_C4.png` | official `rbrun`+`recon.isratio`, N Gauss-Newton iters |
-| 4. two-surface recon (conservative SUM) | `s4_recon_surface.m` | **`recon.bgii`**, `figures/recon_surface.png`, `s4_op.mat`(cache) | **cortex+scalp unknowns; best localization** |
+| 4. two-surface recon (Cedalion voxel aggregation) | `s4_recon_surface.m` | **`recon.bgii`**, `figures/recon_surface.png`, `s4_op.mat`(cache) | **cortex+scalp unknowns; best localization**; `agg='node'` for the previous node→vertex SUM |
+| 4c. Cedalion-matched forward | `s4_recon_matched.m` | `recon_matched_<data>.bgii`, `s4_op_matched*.mat`(cache) | Cedalion's optics (n=1, optional diffusion-equivalent CSF μs′=0.15) + voxel aggregation; reproduces Cedalion's recon (see `../mcx_ref/README.md`) |
 | 4b. two-surface recon (GATHER) | `s4_recon_gather.m` | `recon_gather.bgii`, `recon_gather.png`, `s4_op_gather.mat`(cache) | same, but non-conservative gather → **higher recovered contrast** |
 
 Run (MATLAB launches use the `run_*.m` driver wrappers to avoid inline-newline issues):
@@ -44,6 +45,14 @@ python3 score_recon.py                         # score recon.bgii vs groundtruth
 ```
 Tuning (instant — uses the cached operator): `s2_recon_gm([],alpha,beta)`,
 `s4_recon_surface(alpha,beta)`, `s4_sweep.m`.
+
+**Aggregation (default `agg='voxel'`)** follows Cedalion's `compute_sensitivity`: the FEM
+fluences are interpolated (barycentric) to the centres of the gray/white and scalp voxels,
+`J(v) = −φ_s(v)·φ_d(v)·V`, and summed into vertices with Cedalion's own
+`voxel_to_vertex_brain/scalp.mtx.gz`; skull and CSF voxels are dropped. The previous
+node→vertex SUM (`agg='node'`) also summed skull/CSF nodes into the surfaces (cortex total
+3.7× Cedalion's, scalp/cortex 1.0 vs 5.5) and sampled only ~1.8 brain nodes per cortex vertex
+(per-vertex r 0.71 vs Cedalion; voxel aggregation: 0.977).
 
 ---
 
@@ -128,7 +137,8 @@ Validated to machine precision (ratio-mode == absolute-mode) by the test
 
 ## Caches (regenerable)
 - `s4_op.mat` (~530 MB): cached two-surface linear operator for instant retuning via
-  `s4_recon_surface(alpha,beta)` / `s4_sweep.m` — **safe to delete**, rebuilt on next run.
+  `s4_recon_surface(alpha,beta)` / `s4_sweep.m` — **safe to delete**, rebuilt on next run, and
+  rebuilt automatically when its stored `agg` differs (caches without `agg` count as `'node'`).
   (`s2`'s `recon_gm_op.mat` cache is likewise rebuilt by `s2_recon_gm.m` if needed.)
 
 ## Next steps
