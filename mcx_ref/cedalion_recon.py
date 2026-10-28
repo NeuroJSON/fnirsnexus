@@ -8,7 +8,7 @@ ICBM-152 head model, nn22 resting-state c_meas (repair_amp -> int2od -> SCI/PSP 
     ImageRecon(Adot, recon_mode="mua2conc", alpha_meas=0.5, brain_only=False,
                spatial_basis_functions=None, apply_c_meas=True).reconstruct(hrf_od, c_meas)
 
-The MCX data (mcx_ref/hrf_measurement.jdb) is put into the same xarray structure as the
+The MCX data (mcx_ref/hrf_measurement.mat) is put into the same xarray structure as the
 original hrf_od by matching (source, detector) labels; the mapping is verified by
 reproducing the original data from ../redbird_recon/hrf_measurement.jdb exactly.
 Scores at t_rel = 10 s with the redbird metrics (peak error, corr, recovered peak, scalp
@@ -28,11 +28,21 @@ import cedalion.nirs
 import cedalion.sigproc.quality as quality
 import jdata as jd
 import numpy as np
+import scipy.io
 from cedalion import units
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 T_SNAP = 10.0
+
+
+def load_bundle(fname):
+    """Load a measurement bundle: .mat or .jdb (mcx_ref writes both; the original
+    ../redbird_recon/hrf_measurement.jdb is .jdb only); returns a dict with the same fields."""
+    fname = Path(fname)
+    if fname.suffix.lower() == ".mat":
+        return scipy.io.loadmat(str(fname), simplify_cells=True)
+    return jd.load(str(fname))
 
 
 def load_cmeas(channels):
@@ -104,7 +114,7 @@ def check_adot(adot, hrf0):
     ab = adot.sel(vertex=adot.is_brain, channel=hrf0.channel)
     sa = sa.assign_coords(vertex=ab.vertex.values).pint.quantify("uM")
     od = fm.image_to_channel_space(ab, sa, spectrum="prahl").pint.dequantify()
-    f = jd.load(str(HERE / "hrf_measurement.jdb"))
+    f = load_bundle(HERE / "hrf_measurement.mat")
     ref = np.asarray(f["maxOD_cedalion"], dtype=float)          # pair x wl x trial (fitted)
     pairs = np.asarray(f["pairs"], dtype=int)
     import h5py
@@ -121,7 +131,7 @@ def check_adot(adot, hrf0):
 
 def to_hrf(template, meas, field="dOD"):
     """Copy a redbird-schema dOD [pair, wl, time, trial] into the hrf_od xarray layout."""
-    f = jd.load(str(meas))
+    f = load_bundle(meas)
     dod = np.asarray(f[field], dtype=float)
     pairs = np.asarray(f["pairs"], dtype=int)
     with __import__("h5py").File(ROOT / "cedalion_ref" / "synthetic_hrf.snirf", "r") as h:
@@ -177,7 +187,7 @@ def main():
     err = float(np.abs(chk.values - hrf0.pint.dequantify().values).max()) \
         if hasattr(hrf0, "pint") else float(np.abs(chk.values - hrf0.values).max())
     print(f"mapping check: max |reconstructed - original| = {err:.2e} (float32 round-off)")
-    hrf_mcx, _ = to_hrf(hrf0, HERE / "hrf_measurement.jdb")
+    hrf_mcx, _ = to_hrf(hrf0, HERE / "hrf_measurement.mat")
 
     for aname, adot in adots.items():
         run_recon(aname, adot, hrf0, hrf_mcx, c_meas, truth, cortex, tdim, gt,

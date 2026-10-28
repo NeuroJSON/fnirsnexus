@@ -29,12 +29,12 @@ for f = {'s4_op_matched_csf0.15_voxel.mat', 's4_op.mat'}
     ops(end + 1, :) = {f{1}, S.Anorm, -S.Anorm(1:npair, 1:end / 2) / erb(1, 1), ...
                        -S.Anorm(npair + (1:npair), 1:end / 2) / erb(2, 1)}; %#ok<AGROW>
 end
-data = {'orig', fullfile(rb, 'hrf_measurement.jdb'); 'mcx', fullfile(here, 'hrf_measurement.jdb')};
+data = {'orig', fullfile(rb, 'hrf_measurement.jdb'); 'mcx', fullfile(here, 'hrf_measurement.mat')};
 
 fprintf('\n%-36s %-9s %-4s %-4s %8s %10s %10s %8s\n', 'operator', 'inverse', 'data', 'cond', ...
         'r_vs_ced', 'pk_dist_mm', 'err_truth', 'pk_uM');
 for d = 1:2
-    m = loadjd(data{d, 2});
+    m = loadmeas(data{d, 2});
     dOD = double(m.dOD);
     taxis = double(m.time(:));
     [~, tidx] = min(abs(taxis - 10.0));

@@ -52,7 +52,7 @@ truth = {double(gt.GIFTIData.MeshVertex3.Properties.HbO_C3), ...
          double(gt.GIFTIData.MeshVertex3.Properties.HbO_C4)};
 
 data = {'Cedalion (Adot)', fullfile(rb, 'hrf_measurement.jdb'); ...
-        'MCX reference', fullfile(here, 'hrf_measurement.jdb')};
+        'MCX reference', fullfile(here, 'hrf_measurement.mat')};
 cond = {'C3', 'C4'};
 res = cell(size(data, 1), 1);
 fprintf('\n== redbird s4 two-surface recon, alpha=%.3g beta=%.3g, t=10 s ==\n', alpha, beta);
@@ -71,7 +71,7 @@ end
 % noise-free signal of each dataset (same c_meas weighting): separates SNR from model error
 [maxOD_ced, K, reltime] = mcx_build_hrf('fitonly', true);
 [~, tk] = min(abs(reltime - 10.0));
-mm = loadjd(data{2, 2});
+mm = loadmeas(data{2, 2});
 [npair, nwl] = size(maxOD_ced, [1 2]);
 clean = {zeros(npair * nwl, 2), zeros(npair * nwl, 2)};
 for w = 1:nwl
@@ -139,7 +139,7 @@ end
 
 % -------------------------------------------------------------------------
 function [rhs, cmeas] = loaddata(fname)
-m = loadjd(fname);
+m = loadmeas(fname);
 dOD = double(m.dOD);
 [npair, nwl, ~, ntrial] = size(dOD);
 taxis = double(m.time(:));

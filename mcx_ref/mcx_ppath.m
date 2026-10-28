@@ -15,7 +15,7 @@ function mcx_ppath(varargin)
 % Cedalion's Adot peak dOD (recovered from the sample data by mcx_build_hrf).
 %
 % Outputs: cache/ppath_srcNN.mat (per-photon detid + ppath, for rescaling),
-%          mcx_ppath.jdb (per-pair statistics), figures/ppath_vs_cedalion.png
+%          mcx_ppath.mat/.jdb (per-pair statistics), figures/ppath_vs_cedalion.png
 
 opt = struct('nphoton', 1e9, ...       % photons per source (one MCX call)
              'qmask', 1e-2, ...        % region = dmua >= qmask x peak
@@ -32,7 +32,7 @@ for i = 1:2:numel(varargin)
 end
 here = fileparts(mfilename('fullpath'));
 if isempty(opt.outfile)
-    opt.outfile = fullfile(here, 'mcx_ppath.jdb');
+    opt.outfile = fullfile(here, 'mcx_ppath.mat');
 end
 cachedir = fullfile(here, 'cache');
 if ~exist(cachedir, 'dir')
@@ -218,7 +218,7 @@ out = struct('format', 'mcx-ppath-stats', 'pairs', int32(pairs), 'wavelengths', 
              'labels', {[names, trials]}, 'prop', prop, 'dmua_mean', dmua_mean, ...
              'region_dmua_fraction', infrac, 'dOD_lin', dOD_lin, ...
              'maxOD_cedalion', maxOD_ced, 'settings', opt);
-savebj('', out, 'FileName', opt.outfile, 'Compression', 'zlib');
+savemeas(opt.outfile, out);                % .mat + .jdb
 fprintf('saved %s\n', opt.outfile);
 plotscatter(fullfile(here, 'figures'), maxOD_ced, dOD_lin, ok, wl, trials);
 end

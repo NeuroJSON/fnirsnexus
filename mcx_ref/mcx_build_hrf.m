@@ -3,7 +3,7 @@ function [maxOD_ced, K, reltime] = mcx_build_hrf(varargin)
 % measurement with exactly Cedalion's temporal workflow, and write it in the
 % redbird-hrf-dod schema (drop-in for ../redbird_recon/hrf_measurement.jdb).
 %
-%   mcx_build_hrf()                  % -> hrf_measurement.jdb (+ figures/)
+%   mcx_build_hrf()                  % -> hrf_measurement.mat/.jdb (+ figures/)
 %   maxOD_ced = mcx_build_hrf('fitonly', true)  % only fit/validate vs Cedalion
 %
 % Cedalion's notebook: syn(t) = maxOD * reg_trial(t) (Gamma HRF tau=0 sigma=3 T=3
@@ -32,10 +32,10 @@ end
 here = fileparts(mfilename('fullpath'));
 root = fullfile(here, '..');
 if isempty(opt.mcxfile)
-    opt.mcxfile = fullfile(here, 'mcx_jacobian.jdb');
+    opt.mcxfile = fullfile(here, 'mcx_jacobian.mat');
 end
 if isempty(opt.outfile)
-    opt.outfile = fullfile(here, 'hrf_measurement.jdb');
+    opt.outfile = fullfile(here, 'hrf_measurement.mat');
 end
 if isempty(opt.restfile)
     % the 3309-sample run (0..368 s) matches Cedalion's nn22 resting-state recording
@@ -91,7 +91,7 @@ if opt.fitonly
 end
 
 %% ---- MCX synthetic signal through the same pipeline -------------------------
-mc = loadjd(opt.mcxfile);
+mc = loadmeas(opt.mcxfile);
 if ~isequal(double(mc.pairs), double(meas.pairs)) || ~mc.complete
     error('%s is incomplete or does not match the measurement pairs', opt.mcxfile);
 end
@@ -131,7 +131,7 @@ if isfield(mc, 'settings')
     out.ForwardSettings = mc.settings;                     % MCX forward settings
 end
 out.TemporalSettings = opt;
-savebj('', out, 'FileName', opt.outfile, 'Compression', 'zlib');
+savemeas(opt.outfile, out);                % .mat + .jdb
 fprintf('saved %s\n', opt.outfile);
 
 plotcompare(fullfile(here, 'figures'), maxOD, maxOD_ced, double(meas.wavelengths), ...

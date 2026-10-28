@@ -40,14 +40,14 @@ for k = 1:size(opf, 1)
     clear S;
 end
 
-data = {'orig', fullfile(rb, 'hrf_measurement.jdb'); 'mcx', fullfile(here, 'hrf_measurement.jdb')};
+data = {'orig', fullfile(rb, 'hrf_measurement.jdb'); 'mcx', fullfile(here, 'hrf_measurement.mat')};
 steps = {'S0 redbird s4', 'S1 +Cedalion c_meas', 'S2 +no depth weight', 'S3 +Cedalion lambda', ...
          'S4 +per-wavelength (=Cedalion)'};
 Y = cell(2, 1);
 cpre = cell(2, 1);
 ced = cell(2, 1);
 for d = 1:2
-    m = loadjd(data{d, 2});
+    m = loadmeas(data{d, 2});
     dOD = double(m.dOD);
     taxis = double(m.time(:));
     [~, tidx] = min(abs(taxis - 10.0));

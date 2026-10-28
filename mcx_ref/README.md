@@ -20,27 +20,29 @@ original.
 
 | file | what |
 |---|---|
-| `mcx_ref/hrf_measurement.jdb` | **the measurement**: block-averaged HRF ΔOD + optode geometry (§5.1) |
-| `redbird_recon/groundtruth.bgii` | **the truth**: cortex surface + true ΔHbO/ΔHbR per vertex (§5.3) |
+| `mcx_ref/hrf_measurement.mat` (or `.jdb`) | **the measurement**: block-averaged HRF ΔOD + optode geometry (§5.1); the `.mat` and `.jdb` copies hold identical content |
+| `redbird_recon/groundtruth.bgii` | **the truth**: cortex surface + true ΔHbO/ΔHbR per vertex (§5.5) |
 | `hm_icbm152/` | the ICBM-152 head model (masks, surfaces, voxel→vertex maps; 170 MB). Not in git: get it from Cedalion with `cedalion.data.get_icbm152_headmodel_files()` (downloads `hm_icbm152.zip`) |
 
-`hrf_measurement.jdb` has the same schema as `redbird_recon/hrf_measurement.jdb` (Cedalion's
-original data). A pipeline can therefore switch datasets by changing only the file name.
+`hrf_measurement.mat` has the same fields as `redbird_recon/hrf_measurement.jdb` (Cedalion's
+original data, JData). A pipeline can therefore switch datasets by changing only the file name
+(and the loader).
 
 **Load it:**
 
 ```matlab
-% MATLAB (JSONLab, https://github.com/NeuroJSON/jsonlab)
-m  = loadjd('mcx_ref/hrf_measurement.jdb');
+% MATLAB (.jdb/.bgii need JSONLab, https://github.com/NeuroJSON/jsonlab)
+m  = load('mcx_ref/hrf_measurement.mat');      % or: m = loadjd('mcx_ref/hrf_measurement.jdb');
 gt = loadjd('redbird_recon/groundtruth.bgii');
 [~, it] = min(abs(m.time - 10));          % t_rel = 10 s snapshot
 y = m.dOD(:, :, it, 1);                   % [497 pairs x 2 wavelengths], condition "Stim C3"
 ```
 
 ```python
-# Python (jdata >= 0.9.5: pip install -U jdata bjdata)
-import jdata as jd, numpy as np
-m  = jd.load("mcx_ref/hrf_measurement.jdb")
+# Python (scipy for .mat; jdata >= 0.9.5 for .jdb/.bgii: pip install -U jdata bjdata)
+import scipy.io, jdata as jd, numpy as np
+m  = scipy.io.loadmat("mcx_ref/hrf_measurement.mat", simplify_cells=True)
+# or: m = jd.load("mcx_ref/hrf_measurement.jdb")
 gt = jd.load("redbird_recon/groundtruth.bgii")
 dOD = np.asarray(m["dOD"])                # (497, 2, 190, 2): pair, wavelength, time, trial
 it  = np.argmin(np.abs(np.asarray(m["time"]).ravel() - 10.0))
@@ -314,20 +316,39 @@ Notes for running Cedalion on this data:
 
 ## 5. Data file structure
 
-All `.jdb` / `.bgii` files are binary JData (BJData, zlib-compressed). MATLAB reads them with
-JSONLab `loadjd`/`loadbj`; Python with `jdata` ≥ 0.9.5 (`jd.load`). Array shapes are the same
-in both. Indices stored in the files are **1-based**.
+Each `mcx_ref` output (`hrf_measurement`, `mcx_jacobian`, `mcx_ppath`, `mcx_cedalion_check`)
+is written in two formats with identical content (`private/savemeas.m`):
 
-### 5.1 `hrf_measurement.jdb`: the measurement (schema `redbird-hrf-dod`)
+| format | MATLAB | Python |
+|---|---|---|
+| `.mat` (MATLAB v7, one variable per field) | `m = load(f)` | `scipy.io.loadmat(f, simplify_cells=True)` |
+| `.jdb` (binary JData/BJData, zlib) | `m = loadjd(f)` (JSONLab) | `jd.load(f)` (`jdata` ≥ 0.9.5) |
+
+The `.bgii` surfaces and Cedalion's original `redbird_recon/hrf_measurement.jdb` are JData
+only. `private/loadmeas.m` (MATLAB) and `load_bundle()` in `cedalion_recon.py` (Python) load
+either format by extension. Array shapes are the same in all cases. Indices stored in the files are **1-based**.
+
+Two type details apply to every bundle:
+* `trialtype` (`"Stim C3"`, `"Stim C4"`) is a 1 × 2 cell array of char in MATLAB, a list of
+  str from `jd.load`, and a NumPy string array from `scipy.io.loadmat`.
+* `wavelengths` (760, 850 nm) is stored [2 × 1] in `hrf_measurement` (as in Cedalion's original
+  file) and [1 × 2] in the other bundles; index it with `(:)` / `.ravel()`.
+
+The settings structs (`ForwardSettings`, `TemporalSettings`, `settings`) record the options each
+script ran with. Their path-valued members (`fluencedir`, `ppathfile`, `mcxfile`, `outfile`,
+`restfile`) are absolute paths on the machine that generated the data: provenance only, not
+needed to use the files.
+
+### 5.1 `hrf_measurement.mat` / `.jdb`: the measurement (schema `redbird-hrf-dod`)
 
 | field | type, shape | content |
 |---|---|---|
 | `format` | string | `"redbird-hrf-dod"` |
-| `wavelengths` | uint16 [2] | 760, 850 nm |
+| `wavelengths` | uint16 [2 × 1] | 760, 850 nm |
 | `srcpos` | double [56 × 3] | source positions, RAS mm (Cedalion `geo3d_relaxed`, before any snapping) |
 | `detpos` | double [144 × 3] | detector positions, RAS mm |
 | `pairs` | int32 [497 × 2] | channel list `[source, detector]`, 1-based rows of `srcpos`/`detpos` |
-| `trialtype` | string [2] | `"Stim C3"`, `"Stim C4"` (last index of `dOD`) |
+| `trialtype` | cell [1 × 2] | `"Stim C3"`, `"Stim C4"` (last index of `dOD`) |
 | `time` | double [190] | t_rel (s), −0.999 … 19.98, Δt = 0.111 s |
 | **`dOD`** | float32 [497 × 2 × 190 × 2] | **block-averaged ΔOD** [pair, wavelength, t_rel, trial] = R + MCX activation. Use this. |
 | `dOD_clean` | float32 [497 × 2 × 190 × 2] | MCX activation only (no resting-state background) |
@@ -335,9 +356,22 @@ in both. Indices stored in the files are **1-based**.
 | `maxOD_cedalion` | double [497 × 2 × 2] | Cedalion `Adot` peak ΔOD that synthesized the original data (fitted) |
 | `maxOD_se` | double [497 × 2 × 2] | Monte Carlo standard error (NaN for this fluence-based model) |
 | `Unit`, `Space` | string | `"dimensionless"`, `"scanner_anat_RAS_mm"` |
-| `Description`, `Generator` | string | provenance |
-| `ForwardSettings` | struct | MCX settings (`nphoton`, `detradius`, `detlaunch`, `norm`, `seed`, …) |
-| `TemporalSettings` | struct | temporal settings (`fband`, `butter_order`, `epoch`, resting-state file) |
+| `Description` | string | `"Cedalion synthetic-HRF workflow with the channel-space activation recomputed by MCX perturbation MC on the voxelated ICBM-152 head"` |
+| `Generator` | string | `"fnirsnexus/mcx_ref: mcx-jacobian-dod (mcx_jacobian.jdb) -> mcx_build_hrf.m"` |
+| `ForwardSettings` | struct | copy of `mcx_jacobian`'s `settings` (table in §5.2) |
+| `TemporalSettings` | struct | `mcx_build_hrf` options, table below |
+
+`TemporalSettings`:
+
+| member | value | meaning |
+|---|---|---|
+| `fband` | [0.02 0.5] | Hz, band-pass applied to the synthetic OD (§3.6) |
+| `butter_order` | 4 | Butterworth order of that band-pass (zero-phase `filtfilt`) |
+| `epoch` | [1 20] | s before / after each onset that are cut out and block-averaged |
+| `restfile` | path | resting-state SNIRF (`nn22_resting_state/sub-08/nirs/sub-08_task-RS_run-02_nirs.snirf`), source of the time axis |
+| `mcxfile` | path | the forward-model summary read (`mcx_jacobian`) |
+| `outfile` | path | the file written |
+| `fitonly` | 0 | 1 = only fit Cedalion's peak ΔOD, write nothing |
 
 Notes:
 * Pre-stimulus variance: `var(dOD(:, w, time<0, :))` across t_rel < 0 and both trials is what
@@ -346,12 +380,15 @@ Notes:
 * The source and detector index order follows the SNIRF probe of `cedalion_ref/synthetic_hrf.snirf`.
   The channel label is `sourceLabels[s] + detectorLabels[d]`, e.g. `S10D87`.
 
-### 5.2 `mcx_jacobian.jdb`: the forward-model summary (`mcx-jacobian-dod`)
+### 5.2 `mcx_jacobian.mat` / `.jdb`: the forward-model summary (`mcx-jacobian-dod`)
 
 | field | shape | content |
 |---|---|---|
+| `format` | string | `"mcx-jacobian-dod"` |
+| `complete` | logical | true when every pair has a finite, positive Φ_sd (all 497 do) |
+| `Description` | string | `"Adjoint MCX Jacobian (one fluence run per optode) applied to the Cedalion synthetic activation on the voxelated ICBM-152 head"` |
 | `pairs`, `wavelengths`, `trialtype` | | as in §5.1 |
-| `maxOD` | [497 × 2 × 2] | peak ΔOD (§3.5), copied into `hrf_measurement.jdb` |
+| `maxOD` | [497 × 2 × 2] | peak ΔOD (§3.5), copied into `hrf_measurement.mat` |
 | `amp`, `dOD_amp` | [21], [497 × 2 × 2 × 21] | ΔOD at activation amplitude a ∈ [0, 1] (linear: a · maxOD) |
 | `Phi` | [497] | Φ_sd used for normalization (= `Phi_kienle`), mm⁻² per photon |
 | `Phi_kienle`, `Phi_footprint` | [497] | 4 R̄_sd (Kienle) / mean fluence under the disk (alternative) |
@@ -359,9 +396,70 @@ Notes:
 | `Lregion` | [497 × 2] | sensitivity summed over the C3 / C4 region (Δμa ≥ 1% of peak), mm |
 | `sds` | [497] | source–detector distance (mm), 15.6–43.1 |
 | `maxOD_cedalion` | [497 × 2 × 2] | as in §5.1 |
-| `settings` | struct | `nphoton` 1e9, `detradius` 1.5, `detlaunch` 'lambertian', `norm` 'kienle', `seed` 20261027, … |
+| `settings` | struct | `mcx_jacobian` options, table below |
 
-### 5.3 `../redbird_recon/groundtruth.bgii`: the truth (JGIfTI)
+`settings` (also stored as `ForwardSettings` in §5.1):
+
+| member | value | meaning |
+|---|---|---|
+| `nphoton` | 1e9 | photons per optode run |
+| `detradius` | 1.5 | mm, radius of the detector's adjoint disk source |
+| `detlaunch` | `'lambertian'` | detector adjoint launch: `'lambertian'` (used) or `'collimated'` |
+| `norm` | `'kienle'` | Φ_sd: `'kienle'` (4 R̄ from the interior fluence, §3.4) or `'footprint'` |
+| `seed` | 20261027 | base MCX RNG seed; optode run *o* uses `seed + o` |
+| `gpuid`, `workload` | `'10'`, [] | MCX GPU selection (RTX 5090) |
+| `savejac` | 1 | also write `fluence/jac_brain.mat` (§5.6) |
+| `fluencedir` | path | where the per-optode fluences are cached (`fluence/`) |
+| `ppathfile` | path | detected-photon run used for the cross-check (`mcx_ppath`) |
+| `outfile` | path | the file written |
+
+### 5.3 `mcx_ppath.mat` / `.jdb`: detected-photon validation (`mcx-ppath-stats`)
+
+From `mcx_ppath.m`: one baseline ("white") MCX run per source with detected-photon partial
+paths, 1.5 mm detectors at the same positions. The C3 and C4 activation regions are relabelled
+as their own media (6 and 7) but keep the gray/white optics, so the simulation is the
+unperturbed head. Per-photon weights are w_i = exp(−Σ_m μa_m L_im) and, for each pair,
+⟨L_m⟩ = Σ_i w_i L_im / Σ_i w_i = −∂OD/∂μa_m for a uniform change of medium m.
+
+| field | shape | content |
+|---|---|---|
+| `format` | string | `"mcx-ppath-stats"` |
+| `pairs`, `wavelengths`, `trialtype` | | as in §5.1 |
+| `labels` | cell [1 × 7] | media 1–7: `csf`, `gm`, `scalp`, `skull`, `wm`, `Stim C3`, `Stim C4` |
+| `prop` | [8 × 4] | MCX optics [μa (mm⁻¹), μs (mm⁻¹), g, n]; row 1 is medium 0 (air), row m+1 is `labels{m}` (§3.1 values; rows 7–8 copy gray matter) |
+| `sds` | [497] | source–detector distance (mm) |
+| `ndetected` | [497] | detected photons per pair (21,690 – 1.24 × 10⁶) |
+| `I0` | [497] | detected weight per launched photon, Σ_i w_i / nphoton |
+| `Lmean` | [497 × 7] | weighted mean partial path ⟨L_m⟩ (mm) per medium, columns in `labels` order |
+| `Ltotal` | [497] | weighted mean total path Σ_m ⟨L_m⟩ (mm) |
+| `Lse` | [497 × 2] | standard error of ⟨L⟩ in the C3 / C4 region (mm) |
+| `hitfrac` | [497 × 2] | weighted fraction of detected photons that enter the C3 / C4 region |
+| `dmua_mean` | [2 × 2] | mean Δμa (mm⁻¹) inside each region at peak activation, [trial × wavelength] |
+| `region_dmua_fraction` | [2 × 2] | share of the total Δμa that lies inside the region (0.989), [trial × wavelength] |
+| `dOD_lin` | [497 × 2 × 2] | first-order prediction `dmua_mean` × ⟨L_region⟩, [pair × wavelength × trial] |
+| `maxOD_cedalion` | [497 × 2 × 2] | as in §5.1 |
+| `settings` | struct | `nphoton` 1e9 (per source), `qmask` 0.01 (region = voxels with Δμa ≥ 1% of peak), `detradius` 1.5, `maxdetphoton` 1e7, `seed` 20260610 (source *s* uses `seed + s`), `savephoton` 1 (write `cache/ppath_srcNN.mat`), `srclist` [] (all sources), `gpuid` `'111'` / `workload` (moli: 3090 + 2 × 2080), `outfile` |
+
+### 5.4 `mcx_cedalion_check.mat` / `.jdb`: Cedalion's conventions (`mcx-cedalion-check`)
+
+From `mcx_cedalion_check.m`: MCX rerun with exactly Cedalion's `ForwardModel` conventions
+(optodes at the voxel corner of the nearest scalp voxel, collimated pencil beams for every
+optode, Cedalion's fluence-at-optode normalization; §3.7). It reproduces the `Adot` that
+generated the original data.
+
+| field | shape | content |
+|---|---|---|
+| `format` | string | `"mcx-cedalion-check"` |
+| `pairs`, `wavelengths`, `trialtype` | | as in §5.1 |
+| `maxOD` | [497 × 2 × 2] | peak ΔOD with Cedalion's conventions, [pair × wavelength × trial] |
+| `maxOD_cedalion` | [497 × 2 × 2] | as in §5.1 |
+| `normfactor` | [497] | Cedalion's normalization (f[s→d] + f[d→s]) / 2, fluence at the opposite optode (mm⁻² per photon) |
+| `Ltotal` | [497] | Σ_v φ_s φ_d V / `normfactor` (mm), 69 – 886: Cedalion's normalization inflates the total path |
+| `optijk` | [200 × 3] | optode voxel indices, **0-based** full-grid IJK as Cedalion passes them to MCX (rows 1–56 sources, 57–200 detectors) |
+| `optdir` | [200 × 3] | optode launch directions (unit vectors, −vertex normal) |
+| `settings` | struct | `nphoton` 1e8 (Cedalion's default), `seed` 20261028 (optode *o* uses `seed + o`), `saveadot` 1 (write `adot_cedalion.mat`), `gpuid` `'10'`, `fluencedir` (`fluence_cedalion/`), `outfile` |
+
+### 5.5 `../redbird_recon/groundtruth.bgii`: the truth (JGIfTI)
 
 * `GIFTIData.MeshVertex3.Data`: single [25000 × 3], cortex vertices (RAS mm). This is
   `mask_brain.obj` after the voxel→RAS mapping, the same vertex order as Cedalion's brain surface.
@@ -369,7 +467,7 @@ Notes:
 * `GIFTIData.MeshVertex3.Properties.HbO_C3 / HbR_C3 / HbO_C4 / HbR_C4`: true ΔHbO/ΔHbR (µM),
   peak 5 / −2 µM.
 
-### 5.4 Large regenerable files (git-ignored)
+### 5.6 Large regenerable files (git-ignored)
 
 | path | content |
 |---|---|
@@ -379,14 +477,12 @@ Notes:
 | `fluence_cedalion/` | the same with Cedalion's exact conventions (`mcx_cedalion_check.m`) |
 | `cache/ppath_srcNN.mat` | detected-photon partial paths of the validation run (`mcx_ppath.m`) |
 
-### 5.5 Other small files
+### 5.7 Other small files
 
 | file | content |
 |---|---|
 | `adot_cedalion.mat` | `Adot` single [497 × 35018] (mm): Cedalion's original sensitivity reproduced with MCX, 25,000 cortex + 10,018 scalp vertices (`is_brain`), pair order of §5.1 |
 | `cmeas_cedalion.mat` | `cmeas` [497 × 2]: Cedalion's `c_meas` (resting-state OD variance) per pair and wavelength |
-| `mcx_ppath.jdb` | per-pair detected-photon statistics (validation, §3.4) |
-| `mcx_cedalion_check.jdb` | peak ΔOD with Cedalion's conventions (§3.7) |
 | `recon_cedalion_{orig,mcx}.bgii`, `recon_mcx.bgii` | example reconstructions (cortex, µM) |
 
 ---
@@ -406,8 +502,8 @@ data, needed to recover R); and `nn22_resting_state/sub-08/nirs/sub-08_task-RS_r
 
 ```bash
 cd mcx_ref
-matlab -nodisplay -batch "mcx_jacobian"     # 200 MCX runs (~20-25 min on an RTX 5090) + Jacobian -> mcx_jacobian.jdb
-matlab -nodisplay -batch "mcx_build_hrf"    # temporal stage (~1 min) -> hrf_measurement.jdb
+matlab -nodisplay -batch "mcx_jacobian"     # 200 MCX runs (~20-25 min on an RTX 5090) + Jacobian -> mcx_jacobian.mat/.jdb
+matlab -nodisplay -batch "mcx_build_hrf"    # temporal stage (~1 min) -> hrf_measurement.mat/.jdb
 # or both: matlab -nodisplay -r "run_mcx_ref"
 ```
 

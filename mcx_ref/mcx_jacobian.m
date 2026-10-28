@@ -24,8 +24,8 @@ function mcx_jacobian(varargin)
 % * Cedalion's optics are wavelength independent -> one Jacobian set serves both
 %   wavelengths, both conditions and every HRF phase (they differ only in dmua)
 %
-% Outputs: mcx_jacobian.jdb (peak dOD per pair; same fields as mcx_dod.jdb, so
-% mcx_build_hrf('mcxfile', 'mcx_jacobian.jdb') turns it into an HRF measurement),
+% Outputs: mcx_jacobian.mat/.jdb (peak dOD per pair; same fields as mcx_dod.mat, so
+% mcx_build_hrf('mcxfile', 'mcx_jacobian.mat') turns it into an HRF measurement),
 % <fluencedir>/jac_brain.mat: J_p/Phi_p (mm) on the brain voxels for reweighting.
 
 opt = struct('nphoton', 1e9, ...       % photons per optode run (Cedalion: 1e8)
@@ -37,17 +37,17 @@ opt = struct('nphoton', 1e9, ...       % photons per optode run (Cedalion: 1e8)
              'norm', 'kienle', ...     % Phi_p: 'kienle' (4 x dref from fluence) | 'footprint'
              'detlaunch', 'lambertian', ...  % detector adjoint source: 'lambertian' | 'collimated'
              'savejac', true, ...
-             'ppathfile', '', ...      % optional cross-check with mcx_ppath.jdb
+             'ppathfile', '', ...      % optional cross-check with mcx_ppath.mat
              'outfile', '');
 for i = 1:2:numel(varargin)
     opt.(varargin{i}) = varargin{i + 1};
 end
 here = fileparts(mfilename('fullpath'));
 if isempty(opt.ppathfile)
-    opt.ppathfile = fullfile(here, 'mcx_ppath.jdb');
+    opt.ppathfile = fullfile(here, 'mcx_ppath.mat');
 end
 if isempty(opt.outfile)
-    opt.outfile = fullfile(here, 'mcx_jacobian.jdb');
+    opt.outfile = fullfile(here, 'mcx_jacobian.mat');
 end
 if isempty(opt.fluencedir)
     opt.fluencedir = fullfile(here, 'fluence');
@@ -171,7 +171,7 @@ q = sqrt(sum(M.dmuavox.^2, 3));
 nlabel0 = size(M.prop0, 1) - 1;
 qmask = 1e-2;
 if exist(opt.ppathfile, 'file')
-    pp = loadjd(opt.ppathfile);
+    pp = loadmeas(opt.ppathfile);
     qmask = pp.settings.qmask;
 end
 inreg = (q ./ max(q, [], 1)) >= qmask;                    % C3/C4 regions (checks only)
@@ -235,7 +235,7 @@ sds = sqrt(sum((double(M.meas.srcpos(pairs(:, 1), :)) - double(M.meas.detpos(pai
 fprintf('\nmean total path sum_v J/Phi (mm): median %.1f [%.1f %.1f], DPF median %.2f\n', ...
         median(Lsum(ok)), min(Lsum(ok)), max(Lsum(ok)), median(Lsum(ok) ./ sds(ok)));
 if exist('pp', 'var')
-    fprintf('cross-check vs detected-photon run (mcx_ppath.jdb, same positions and radius):\n');
+    fprintf('cross-check vs detected-photon run (mcx_ppath.mat, same positions and radius):\n');
     Idet = double(pp.I0);                                 % detected weight per photon
     Ik = Rsd * pi * opt.detradius^2;                      % Kienle dref x disk area
     fprintf('  intensity: Kienle dref*area / detected  median %.3f [p5 %.3f p95 %.3f], r(log) %.4f\n', ...
@@ -277,7 +277,7 @@ draw = dOD(ok, :, ip, 1) - dOD(ok, :, ip, 2);
 fprintf('C3-C4 (rest cancels): r vs fitted peak %.4f, r vs raw dOD at t=%.2fs %.4f\n', ...
         pearson(dc(:), dl(:)), reltime(ip), pearson(draw(:), dl(:)));
 
-% linear in amplitude: same fields as mcx_dod.jdb so mcx_build_hrf can use it
+% linear in amplitude: same fields as mcx_dod.mat so mcx_build_hrf can use it
 amp = linspace(0, 1, 21);
 out = struct('format', 'mcx-jacobian-dod', 'complete', all(ok), ...
              'Description', ['Adjoint MCX Jacobian (one fluence run per optode) applied to ' ...
@@ -287,7 +287,7 @@ out = struct('format', 'mcx-jacobian-dod', 'complete', all(ok), ...
              'maxOD', dOD_adj, 'maxOD_se', nan(size(dOD_adj)), ...
              'maxOD_cedalion', maxOD_ced, 'Phi', Phi, 'Phi_kienle', Phi_k, 'Phi_footprint', Phi_f, 'Ltotal', Lsum, 'Lregion', Lreg, ...
              'sds', sds, 'settings', opt);
-savebj('', out, 'FileName', opt.outfile, 'Compression', 'zlib');
+savemeas(opt.outfile, out);                % .mat + .jdb
 fprintf('saved %s\n', opt.outfile);
 plotscatter(fullfile(here, 'figures'), maxOD_ced, dOD_adj, ok, wl, trials);
 end

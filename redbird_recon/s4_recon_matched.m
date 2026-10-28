@@ -4,7 +4,7 @@ function s4_recon_matched(alpha, beta, measfile, csfmus, agg)
 % give the same reconstruction from the same data.
 %
 %   s4_recon_matched()                                   % alpha=0.003, beta=0.01, this folder's data
-%   s4_recon_matched(0.003, 0.01, '../mcx_ref/hrf_measurement.jdb')
+%   s4_recon_matched(0.003, 0.01, '../mcx_ref/hrf_measurement.mat')
 %   s4_recon_matched([], [], [], 0.15)                   % diffusion-equivalent CSF (CSF paper)
 %   s4_recon_matched([], [], [], [], 'node')             % node->vertex aggregation instead
 %
@@ -40,7 +40,12 @@ end
 hm = fullfile(here, '..', 'hm_icbm152');
 
 %% ---- data + surfaces ----------------------------------------------------
-meas = loadjd(measfile);
+[~, ~, ext] = fileparts(measfile);
+if strcmpi(ext, '.mat')                                    % e.g. ../mcx_ref/hrf_measurement.mat
+    meas = load(measfile);
+else
+    meas = loadjd(measfile);
+end
 wl = double(meas.wavelengths(:))';
 wlkey = arrayfun(@(x) num2str(x), wl, 'UniformOutput', false);
 srcpos = double(meas.srcpos);

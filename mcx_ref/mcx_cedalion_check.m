@@ -14,7 +14,7 @@ function mcx_cedalion_check(varargin)
 %     stepping along the receiver's direction (<= 50 mm) while it is zero
 %   * compute_sensitivity: Adot = (phi_s .* phi_d) @ voxel_to_vertex_brain / normfactor
 %     x Vvox, normfactor = (f[s->d] + f[d->s]) / 2
-% Output: mcx_cedalion_check.jdb and a comparison table vs Cedalion's peak dOD; with
+% Output: mcx_cedalion_check.mat/.jdb and a comparison table vs Cedalion's peak dOD; with
 % saveadot, adot_cedalion.mat: the full Adot [pair x vertex] (25k cortex + 10k scalp,
 % Cedalion's voxel_to_vertex_brain/scalp maps, mm), the original Adot reproduced (the
 % copy on Cedalion's server has since been replaced).
@@ -33,7 +33,7 @@ if isempty(opt.fluencedir)
     opt.fluencedir = fullfile(here, 'fluence_cedalion');
 end
 if isempty(opt.outfile)
-    opt.outfile = fullfile(here, 'mcx_cedalion_check.jdb');
+    opt.outfile = fullfile(here, 'mcx_cedalion_check.mat');
 end
 if ~exist(opt.fluencedir, 'dir')
     mkdir(opt.fluencedir);
@@ -172,7 +172,7 @@ ok = nf > 0;
 
 %% ---- compare --------------------------------------------------------------
 [maxOD_ced, K, ~] = mcx_build_hrf('fitonly', true);
-mj = loadjd(fullfile(here, 'mcx_jacobian.jdb'));          % physical model (for reference)
+mj = load(fullfile(here, 'mcx_jacobian.mat'));          % physical model (for reference)
 fprintf('\n== MCX with Cedalion''s exact conventions vs Cedalion''s precomputed Adot ==\n');
 fprintf('%-10s %10s %14s %14s %22s\n', 'trial', 'r', 'slope', 'median ratio', ...
         'physical model slope');
@@ -191,7 +191,7 @@ out = struct('format', 'mcx-cedalion-check', 'pairs', int32(pairs), 'wavelengths
              'trialtype', {trials}, 'maxOD', dOD, 'maxOD_cedalion', maxOD_ced, ...
              'normfactor', nf, 'Ltotal', Jsum ./ nf, 'optijk', optijk, 'optdir', optdir, ...
              'settings', opt);
-savebj('', out, 'FileName', opt.outfile, 'Compression', 'zlib');
+savemeas(opt.outfile, out);                % .mat + .jdb
 fprintf('saved %s\n', opt.outfile);
 end
 

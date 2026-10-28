@@ -29,10 +29,10 @@ function mcx_forward(varargin)
 %     dOD(a) = -ln( sum w_act(a) / sum w_base ) per source-detector pair, for a grid
 %     of amplitudes a in [0,1] (the HRF regressor is scaled into [0,1] by Cedalion)
 %
-% Output: mcx_dod.jdb (binary JData) with dOD_amp [pair x wl x trial x amp], the
+% Output: mcx_dod.mat/.jdb with dOD_amp [pair x wl x trial x amp], the
 % peak maxOD = dOD(a=1), its MC standard error, baseline intensities and settings.
 % Per-source results are cached in cache/ so an interrupted run resumes.
-% Next step: mcx_build_hrf.m (temporal augmentation -> hrf_measurement.jdb).
+% Next step: mcx_build_hrf.m (temporal augmentation -> hrf_measurement.mat).
 %
 % Requires mcxlab (+ utils), iso2mesh (readobjmesh, nodesurfnorm), jsonlab/jnifti.
 
@@ -53,7 +53,7 @@ for i = 1:2:numel(varargin)
 end
 here = fileparts(mfilename('fullpath'));
 if isempty(opt.outfile)
-    opt.outfile = fullfile(here, 'mcx_dod.jdb');
+    opt.outfile = fullfile(here, 'mcx_dod.mat');
 end
 cachedir = fullfile(here, 'cache');
 if ~exist(cachedir, 'dir')
@@ -235,6 +235,6 @@ out = struct('format', 'mcx-pmc-dod', ...
              'srcpos_ijk', srcmcx, 'srcdir', srcdir, 'detpos_ijk', detmcx, ...
              'prop', prop, 'dmua', dmua, 'quant_relerr', qerr, ...
              'settings', opt, 'unitinmm', unitinmm);
-savebj('', out, 'FileName', opt.outfile, 'Compression', 'zlib');
+savemeas(opt.outfile, out);                % .mat + .jdb
 fprintf('saved %s\n', opt.outfile);
 end
