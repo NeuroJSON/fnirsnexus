@@ -14,6 +14,33 @@ original.
 
 ---
 
+## Contents
+
+- [1. Quick start](#1-quick-start)
+- [2. The experiment being reproduced](#2-the-experiment-being-reproduced)
+- [3. How the data were generated](#3-how-the-data-were-generated)
+  - [3.1 Head model and optical properties](#31-head-model-and-optical-properties)
+  - [3.2 Optode positions and directions](#32-optode-positions-and-directions)
+  - [3.3 MCX simulations: one fluence per optode](#33-mcx-simulations-one-fluence-per-optode)
+  - [3.4 Sensitivity (Jacobian) and normalization](#34-sensitivity-jacobian-and-normalization)
+  - [3.5 Activation → channel ΔOD](#35-activation--channel-δod)
+  - [3.6 Temporal augmentation (Cedalion's workflow, ported to MATLAB)](#36-temporal-augmentation-cedalions-workflow-ported-to-matlab)
+  - [3.7 How it compares with Cedalion's data](#37-how-it-compares-with-cedalions-data)
+- [4. Reconstructions of this data (for reference)](#4-reconstructions-of-this-data-for-reference)
+- [5. Data file structure](#5-data-file-structure)
+  - [5.1 `hrf_measurement.mat` / `.jdb`: the measurement (schema `redbird-hrf-dod`)](#51-hrf_measurementmat--jdb-the-measurement-schema-redbird-hrf-dod)
+  - [5.2 `mcx_jacobian.mat` / `.jdb`: the forward-model summary (`mcx-jacobian-dod`)](#52-mcx_jacobianmat--jdb-the-forward-model-summary-mcx-jacobian-dod)
+  - [5.3 `mcx_ppath.mat` / `.jdb`: detected-photon validation (`mcx-ppath-stats`)](#53-mcx_ppathmat--jdb-detected-photon-validation-mcx-ppath-stats)
+  - [5.4 `mcx_cedalion_check.mat` / `.jdb`: Cedalion's conventions (`mcx-cedalion-check`)](#54-mcx_cedalion_checkmat--jdb-cedalions-conventions-mcx-cedalion-check)
+  - [5.5 `../redbird_recon/groundtruth.bgii`: the truth (JGIfTI)](#55-redbird_recongroundtruthbgii-the-truth-jgifti)
+  - [5.6 Large regenerable files (git-ignored)](#56-large-regenerable-files-git-ignored)
+  - [5.7 Other small files](#57-other-small-files)
+  - [5.8 `hrf_measurement.snirf` / `hrf_measurement_clean.snirf`: SNIRF export](#58-hrf_measurementsnirf--hrf_measurement_cleansnirf-snirf-export)
+- [6. Reproducing the data](#6-reproducing-the-data)
+- [7. Caveats](#7-caveats)
+
+---
+
 ## 1. Quick start
 
 **Files you need** (the measurement and the truth are about 3.7 MB together; the SNIRF copy is 8.2 MB):
