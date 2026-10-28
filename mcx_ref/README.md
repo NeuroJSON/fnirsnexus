@@ -16,17 +16,20 @@ original.
 
 ## 1. Quick start
 
-**Files you need** (the first two are about 3.4 MB together):
+**Files you need** (the measurement and the truth are about 3.7 MB together; the SNIRF copy is 8.2 MB):
 
 | file | what |
 |---|---|
 | `mcx_ref/hrf_measurement.mat` (or `.jdb`) | **the measurement**: block-averaged HRF ΔOD + optode geometry (§5.1); the `.mat` and `.jdb` copies hold identical content |
+| `mcx_ref/hrf_measurement.snirf` | the same ΔOD as a SNIRF file, laid out exactly like Cedalion's `cedalion_ref/synthetic_hrf.snirf` (§5.8); `hrf_measurement_clean.snirf` holds `dOD_clean` |
 | `redbird_recon/groundtruth.bgii` | **the truth**: cortex surface + true ΔHbO/ΔHbR per vertex (§5.5) |
 | `hm_icbm152/` | the ICBM-152 head model (masks, surfaces, voxel→vertex maps; 170 MB). Not in git: get it from Cedalion with `cedalion.data.get_icbm152_headmodel_files()` (downloads `hm_icbm152.zip`) |
 
 `hrf_measurement.mat` has the same fields as `redbird_recon/hrf_measurement.jdb` (Cedalion's
 original data, JData). A pipeline can therefore switch datasets by changing only the file name
-(and the loader).
+(and the loader). For SNIRF-based pipelines, `hrf_measurement.snirf` replaces
+`cedalion_ref/synthetic_hrf.snirf` the same way: `cedalion.io.read_snirf` returns the same
+`hrf_od` array (channel × wavelength × trial_type × time) for both.
 
 **Load it:**
 
@@ -485,6 +488,42 @@ generated the original data.
 | `cmeas_cedalion.mat` | `cmeas` [497 × 2]: Cedalion's `c_meas` (resting-state OD variance) per pair and wavelength |
 | `recon_cedalion_{orig,mcx}.bgii`, `recon_mcx.bgii` | example reconstructions (cortex, µM) |
 
+### 5.8 `hrf_measurement.snirf` / `hrf_measurement_clean.snirf`: SNIRF export
+
+Written by `export_snirf.m` with [jsnirfy](https://github.com/NeuroJSON/jsnirfy) (`loadsnirf`
+/ `savesnirf`). The probe (56 sources, 144 detectors, 329 landmarks, labels and RAS mm
+positions), the two stim groups (onsets) and the measurement list are copied from
+`cedalion_ref/synthetic_hrf.snirf`; only `dataTimeSeries` and `metaDataTags` change. The
+script checks that the reference's channel order, stim names and time axis match
+`hrf_measurement.mat` before writing.
+
+| path | content |
+|---|---|
+| `/formatVersion` | `"1.1"` |
+| `/nirs/data1/dataTimeSeries` | double [190 time × 1988 channels]: `dOD` (or `dOD_clean`) |
+| `/nirs/data1/time` | t_rel (s), as `time` in §5.1 |
+| `/nirs/data1/measurementListK` | channel K = (trial−1)·994 + (pair−1)·2 + wavelength: `sourceIndex`, `detectorIndex`, `wavelengthIndex`, `dataType` 99999 (processed), `dataTypeLabel` `"HRF dOD"`, `dataTypeIndex` = condition (1 `Stim C3`, 2 `Stim C4`), `dataUnit` `"dimensionless"` |
+| `/nirs/probe/*` | `wavelengths` [760 850], `sourcePos3D`/`detectorPos3D` (= `srcpos`/`detpos`), `sourceLabels`/`detectorLabels`, `landmarkPos3D`/`landmarkLabels` |
+| `/nirs/stim1`, `/nirs/stim2` | `name` `"Stim C3"` / `"Stim C4"`, `data` [7 × 3] = [onset, duration, amplitude] (s) of the original run |
+| `/nirs/metaDataTags` | `SubjectID` `ICBM152`, `MeasurementDate`/`MeasurementTime` `unknown`, `LengthUnit` `millimeter`, `TimeUnit` `s`, `FrequencyUnit` `Hz`, plus `Description` and `Generator` |
+
+Both files pass the SNIRF validator (`snirf.validateSnirf`, pysnirf2 0.8) with no errors or
+warnings. Cedalion's own `synthetic_hrf.snirf` does not: it lacks `formatVersion` and five
+required `metaDataTags`, which the export adds. The values are identical to the `.mat`, and
+`cedalion.io.read_snirf` reads them back exactly.
+
+Load it:
+
+```matlab
+s = loadsnirf('mcx_ref/hrf_measurement.snirf');   % jsnirfy; s.nirs.data.dataTimeSeries [190 x 1988]
+```
+
+```python
+import cedalion.io
+rec = cedalion.io.read_snirf("mcx_ref/hrf_measurement.snirf")[0]
+hrf_od = rec.timeseries["hrf_od"]                   # channel x wavelength x trial_type x time
+```
+
 ---
 
 ## 6. Reproducing the data
@@ -504,7 +543,8 @@ data, needed to recover R); and `nn22_resting_state/sub-08/nirs/sub-08_task-RS_r
 cd mcx_ref
 matlab -nodisplay -batch "mcx_jacobian"     # 200 MCX runs (~20-25 min on an RTX 5090) + Jacobian -> mcx_jacobian.mat/.jdb
 matlab -nodisplay -batch "mcx_build_hrf"    # temporal stage (~1 min) -> hrf_measurement.mat/.jdb
-# or both: matlab -nodisplay -r "run_mcx_ref"
+matlab -nodisplay -batch "export_snirf; export_snirf('field', 'dOD_clean')"   # -> hrf_measurement[_clean].snirf (needs jsnirfy)
+# or the first two: matlab -nodisplay -r "run_mcx_ref"
 ```
 
 Options: `mcx_jacobian('nphoton', 3e9, 'gpuid', '1')`, `mcx_build_hrf('fitonly', true)`
@@ -518,6 +558,7 @@ The default GPU is `gpuid='10'` (the first device in MCX's order). Fluences are 
 
 | script | purpose |
 |---|---|
+| `export_snirf.m` | writes `hrf_measurement[_clean].snirf` with jsnirfy (§5.8) |
 | `mcx_ppath.m` | detected-photon validation run (§3.4) |
 | `mcx_cedalion_check.m` | MCX with Cedalion's conventions; exports `adot_cedalion.mat` |
 | `cedalion_recon.py` | Cedalion `ImageRecon` on both datasets (needs a Cedalion environment, Python ≥ 3.11) |
