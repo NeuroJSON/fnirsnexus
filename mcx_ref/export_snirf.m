@@ -12,7 +12,8 @@ function export_snirf(varargin)
 % k = (trial-1)*994 + (pair-1)*2 + wavelength; measurementList(k) holds sourceIndex,
 % detectorIndex, wavelengthIndex, dataType 99999, dataTypeLabel "HRF dOD" and
 % dataTypeIndex = condition (1 "Stim C3", 2 "Stim C4", the names of stim1/stim2).
-% Requires jsnirfy (https://github.com/NeuroJSON/jsnirfy) with its bundled EasyH5.
+% Requires jsnirfy (https://github.com/NeuroJSON/jsnirfy, with the savesnirf fix for
+% files without /nirs/aux) and its bundled EasyH5.
 
 opt = struct('infile', '', ...           % [] = mcx_ref/hrf_measurement.mat
              'field', 'dOD', ...         % 'dOD' (R + activation) | 'dOD_clean' (activation only)
@@ -73,15 +74,9 @@ s.nirs.metaDataTags.FrequencyUnit = 'Hz';
 s.nirs.metaDataTags.Description = sprintf('%s [%s]', m.Description, opt.field);
 s.nirs.metaDataTags.Generator = 'fnirsnexus/mcx_ref: hrf_measurement -> export_snirf.m (jsnirfy)';
 s.formatVersion = '1.1';
-s.nirs.aux = [];                                           % none; savesnirf expects the field
 if exist(opt.outfile, 'file')
     delete(opt.outfile);                                   % EasyH5 appends to an existing file
 end
 savesnirf(s, opt.outfile);
-fid = H5F.open(opt.outfile, 'H5F_ACC_RDWR', 'H5P_DEFAULT');  % drop the placeholder aux node
-if H5L.exists(fid, '/nirs/aux', 'H5P_DEFAULT')
-    H5L.delete(fid, '/nirs/aux', 'H5P_DEFAULT');
-end
-H5F.close(fid);
 fprintf('saved %s (%s: %d time x %d channels)\n', opt.outfile, opt.field, size(s.nirs.data.dataTimeSeries));
 end
